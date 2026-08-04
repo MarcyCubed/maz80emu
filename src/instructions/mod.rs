@@ -112,6 +112,14 @@ pub type InstructionSet = [Instruction; 256];
 /// In other words, it performs a simple operation.
 pub type Microinstruction = fn(&mut State) -> ExecResult;
 
+/// How many extra bytes an instruction have after its opcode
+#[derive(Debug, Clone, Copy)]
+pub enum ExtraBytes {
+    None,
+    One,
+    Two,
+}
+
 /// Representation of an instruction and how to run it
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
@@ -120,14 +128,25 @@ pub enum Instruction {
     /// Actual instruction
     ///
     /// An instruction is just a sequence of microinstructions
-    Instruction(&'static [Microinstruction]),
+    Instruction {
+        /// How many extra bytes should be loaded
+        extra_bytes: ExtraBytes,
+        /// The list of micro instructions implementing the instruction
+        micros: &'static [Microinstruction],
+    },
 }
 
 /// NOP instruction
-pub const NOP: Instruction = Instruction::Instruction(&[|_| ExecResult::Done(4)]);
+pub const NOP: Instruction = Instruction::Instruction {
+    extra_bytes: ExtraBytes::None,
+    micros: &[|_| ExecResult::Done(4)],
+};
 
 /// HALT instruction
-pub const HALT: Instruction = Instruction::Instruction(&[|_| ExecResult::Halt]);
+pub const HALT: Instruction = Instruction::Instruction {
+    extra_bytes: ExtraBytes::None,
+    micros: &[|_| ExecResult::Halt],
+};
 
 #[cfg(test)]
 mod tests {

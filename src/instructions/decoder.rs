@@ -1,6 +1,6 @@
 //! Instruction decoder
 
-use crate::instructions::{Instruction, InstructionSet, Microinstruction, micro};
+use crate::instructions::{ExtraBytes, Instruction, InstructionSet, Microinstruction, micro};
 use crate::state::State;
 
 /// The instruction decoder.
@@ -15,6 +15,8 @@ pub(crate) struct Decoder {
     current: &'static InstructionSet,
     /// State of the decoder state machine
     state: DecoderState,
+    /// The last instruction to be loaded
+    last_instruction: &'static [Microinstruction],
 }
 
 /// Decode state machine states
@@ -24,6 +26,8 @@ enum DecoderState {
     FetchOpcode,
     /// Do a table lookup on the fetched opcode
     Table,
+    /// The instruction is fully decoded is ready to be executed
+    Decoded,
 }
 
 /// Initial state for the decoder
@@ -36,6 +40,7 @@ impl Decoder {
             instruction_set,
             current: instruction_set,
             state: INITIAL,
+            last_instruction: &[],
         }
     }
 
@@ -71,12 +76,34 @@ impl Decoder {
                         self.current = table;
                         self.fetch_next(state)
                     }
-                    Instruction::Instruction(micros) => {
-                        // Decoded the instruction: Reset the decoder and return the instruction
-                        self.reset();
-                        micros
+                    Instruction::Instruction {
+                        extra_bytes,
+                        micros,
+                    } => {
+                        match extra_bytes {
+                            ExtraBytes::None => {
+                                // Fully decoded the instruction.
+                                self.reset();
+                                micros
+                            }
+                            ExtraBytes::One => {
+                                self.last_instruction = micros;
+                                self.state = DecoderState::Decoded;
+                                &[micro::fetch_byte]
+                            }
+                            ExtraBytes::Two => {
+                                self.last_instruction = micros;
+                                self.state = DecoderState::Decoded;
+                                &[micro::fetch_word]
+                            }
+                        }
                     }
                 }
+            }
+            DecoderState::Decoded => {
+                // Decoded the instruction: Reset the decoder and return the micro instructions
+                self.reset();
+                self.last_instruction
             }
         }
     }
