@@ -88,13 +88,15 @@ const LAST_ALTERNATE: Register16 = Register16::HL;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct State {
     /// The set of registers
-    pub(crate) registers: [[u8; 2]; LAST_REGISTER as usize + 1],
+    pub registers: [[u8; 2]; LAST_REGISTER as usize + 1],
     /// Alternate register set for AF, BC, DE and HL
-    pub(crate) alternate: [[u8; 2]; LAST_ALTERNATE as usize + 1],
+    pub alternate: [[u8; 2]; LAST_ALTERNATE as usize + 1],
     /// Interrupt flip-flop
-    pub(crate) iff1: bool,
+    pub iff1: bool,
     /// Temporary storage for `iff1``
-    pub(crate) iff2: bool,
+    pub iff2: bool,
+    /// The data fetched when loading code
+    fetched: [u8; 2],
 }
 
 impl State {
@@ -192,6 +194,31 @@ impl State {
     pub fn clear_flags(&mut self, flags: u8) {
         let register = self.get_register_mut_8(Register::Flags);
         *register &= !flags
+    }
+
+    /// Get the last fetched instruction byte
+    pub fn get_fetched_byte(&self) -> u8 {
+        self.fetched[0]
+    }
+
+    /// Get a mutable reference to the instruction byte buffer
+    pub fn get_fetched_byte_mut(&mut self) -> &mut u8 {
+        &mut self.fetched[0]
+    }
+
+    /// Get the last fetched instruction word
+    pub fn get_fetched_word(&self) -> u16 {
+        u16::from_le_bytes(self.fetched)
+    }
+
+    /// Get the last fetched instruction word as an array of bytes
+    pub fn get_fetched_word_bytes(&self) -> [u8; 2] {
+        self.fetched
+    }
+
+    /// Get a mutable reference to overwrite the word argument of instructions
+    pub fn get_fetched_word_mut(&mut self) -> &mut [u8; 2] {
+        &mut self.fetched
     }
 }
 
