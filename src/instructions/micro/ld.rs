@@ -74,3 +74,9 @@ pub fn ld_r_mm(state: &mut State, reg: Register) -> ExecResult<'_> {
         loader: DataLoader::new(state.get_register_mut_8(reg)),
     }
 }
+
+/// Load the contents of a register into another
+pub fn ld_r_r(state: &mut State, dst: Register, src: Register, cycles: u8) -> ExecResult<'_> {
+    state.set_register_8(dst, state.get_register_8(src));
+    ExecResult::Done(cycles)
+}

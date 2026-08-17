@@ -1,7 +1,7 @@
 //! Zilog Z80 CPU
 
 use crate::instructions::micro::{bit, jump, ld, load_8, math, transfer};
-use crate::instructions::{ExecResult, ExtraBytes, Instruction, NOP, UNIMPLEMENTED};
+use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP, UNIMPLEMENTED};
 use crate::state::{Register, Register16};
 
 pub static Z80: [Instruction; 256] = [
@@ -357,70 +357,365 @@ pub static Z80: [Instruction; 256] = [
         extra_bytes: ExtraBytes::None,
         micros: &[|state| math::ccf(state, 4)],
     },
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
+    // Instruction 0x40: ld b, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::B, 4)],
+    },
+    // Instruction 0x41: ld b, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::C, 4)],
+    },
+    // Instruction 0x42: ld b, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::D, 4)],
+    },
+    // Instruction 0x43: ld b, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::E, 4)],
+    },
+    // Instruction 0x44: ld b, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::H, 4)],
+    },
+    // Instruction 0x45: ld b, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::L, 4)],
+    },
+    // Instruction 0x46: ld b, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::B, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x47: ld b, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::B, Register::A, 4)],
+    },
+    // Instruction 0x48: ld c, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::B, 4)],
+    },
+    // Instruction 0x49: ld c, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::C, 4)],
+    },
+    // Instruction 0x4a: ld c, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::D, 4)],
+    },
+    // Instruction 0x4b: ld c, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::E, 4)],
+    },
+    // Instruction 0x4c: ld c, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::H, 4)],
+    },
+    // Instruction 0x4d: ld c, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::L, 4)],
+    },
+    // Instruction 0x4e: ld c, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::C, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x4f: ld c, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::C, Register::A, 4)],
+    },
+    // Instruction 0x50: ld d, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::B, 4)],
+    },
+    // Instruction 0x51: ld d, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::C, 4)],
+    },
+    // Instruction 0x52: ld d, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::D, 4)],
+    },
+    // Instruction 0x53: ld d, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::E, 4)],
+    },
+    // Instruction 0x54: ld d, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::H, 4)],
+    },
+    // Instruction 0x55: ld d, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::L, 4)],
+    },
+    // Instruction 0x56: ld d, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::D, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x57: ld d, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::D, Register::A, 4)],
+    },
+    // Instruction 0x58: ld e, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::B, 4)],
+    },
+    // Instruction 0x59: ld e, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::C, 4)],
+    },
+    // Instruction 0x5a: ld e, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::D, 4)],
+    },
+    // Instruction 0x5b: ld e, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::E, 4)],
+    },
+    // Instruction 0x5c: ld e, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::H, 4)],
+    },
+    // Instruction 0x5d: ld e, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::L, 4)],
+    },
+    // Instruction 0x5e: ld e, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::E, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x5f: ld e, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::E, Register::A, 4)],
+    },
+    // Instruction 0x60: ld h, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::B, 4)],
+    },
+    // Instruction 0x61: ld h, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::C, 4)],
+    },
+    // Instruction 0x62: ld h, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::D, 4)],
+    },
+    // Instruction 0x63: ld h, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::E, 4)],
+    },
+    // Instruction 0x64: ld h, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::H, 4)],
+    },
+    // Instruction 0x65: ld h, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::L, 4)],
+    },
+    // Instruction 0x66: ld h, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::H, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x67: ld h, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::H, Register::A, 4)],
+    },
+    // Instruction 0x68: ld l, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::B, 4)],
+    },
+    // Instruction 0x69: ld l, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::C, 4)],
+    },
+    // Instruction 0x6a: ld l, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::D, 4)],
+    },
+    // Instruction 0x6b: ld l, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::E, 4)],
+    },
+    // Instruction 0x6c: ld l, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::H, 4)],
+    },
+    // Instruction 0x6d: ld l, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::L, 4)],
+    },
+    // Instruction 0x6e: ld l, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::L, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x6f: ld l, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::L, Register::A, 4)],
+    },
+    // Instruction 0x70: ld (hl), b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::B),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x71: ld (hl), c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::C),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x72: ld (hl), d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::D),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x73: ld (hl), e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::E),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x74: ld (hl), h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::H),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x75: ld (hl), l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::L),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x76: halt
+    HALT,
+    // Instruction 0x77: ld (hl), a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_pp_r(state, Register16::HL, Register::A),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x78: ld a, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::B, 4)],
+    },
+    // Instruction 0x79: ld a, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::C, 4)],
+    },
+    // Instruction 0x7a: ld a, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::D, 4)],
+    },
+    // Instruction 0x7b: ld a, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::E, 4)],
+    },
+    // Instruction 0x7c: ld a, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::H, 4)],
+    },
+    // Instruction 0x7d: ld a, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::L, 4)],
+    },
+    // Instruction 0x7e: ld a, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| ld::ld_r_pp(state, Register::A, Register16::HL),
+            |_| ExecResult::Done(7),
+        ],
+    },
+    // Instruction 0x8f: ld a, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| ld::ld_r_r(state, Register::A, Register::A, 4)],
+    },
     UNIMPLEMENTED,
     UNIMPLEMENTED,
     UNIMPLEMENTED,
