@@ -888,38 +888,178 @@ pub static Z80: [Instruction; 256] = [
         extra_bytes: ExtraBytes::None,
         micros: &[|state| math::sbc_r(state, Register::A, 4)],
     },
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
+    // Instruction 0xa0: and b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::B, 4)],
+    },
+    // Instruction 0xa1: and c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::C, 4)],
+    },
+    // Instruction 0xa2: and d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::D, 4)],
+    },
+    // Instruction 0xa3: and e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::E, 4)],
+    },
+    // Instruction 0xa4: and h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::H, 4)],
+    },
+    // Instruction 0xa5: and l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::L, 4)],
+    },
+    // Instruction 0xa6: and (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::and_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0xa7: and a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::and_r(state, Register::A, 4)],
+    },
+    // Instruction 0xa8: xor b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::B, 4)],
+    },
+    // Instruction 0xa9: xor c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::C, 4)],
+    },
+    // Instruction 0xaa: xor d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::D, 4)],
+    },
+    // Instruction 0xab: xor e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::E, 4)],
+    },
+    // Instruction 0xac: xor h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::H, 4)],
+    },
+    // Instruction 0xad: xor l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::L, 4)],
+    },
+    // Instruction 0xae: xor (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::xor_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0xaf: xor a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::xor_r(state, Register::A, 4)],
+    },
+    // Instruction 0xba0: or b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::B, 4)],
+    },
+    // Instruction 0xb1: or c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::C, 4)],
+    },
+    // Instruction 0xb2: or d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::D, 4)],
+    },
+    // Instruction 0xb3: or e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::E, 4)],
+    },
+    // Instruction 0xb4: or h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::H, 4)],
+    },
+    // Instruction 0xb5: or l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::L, 4)],
+    },
+    // Instruction 0xb6: or (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::or_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0xb7: or a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::or_r(state, Register::A, 4)],
+    },
+    // Instruction 0xb8: cp b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::B, 4)],
+    },
+    // Instruction 0xb9: cp c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::C, 4)],
+    },
+    // Instruction 0xba: cp d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::D, 4)],
+    },
+    // Instruction 0xbb: cp e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::E, 4)],
+    },
+    // Instruction 0xbc: cp h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::H, 4)],
+    },
+    // Instruction 0xbd: cp l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::L, 4)],
+    },
+    // Instruction 0xbe: cp (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::cp_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0xbf: cp a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::cp_r(state, Register::A, 4)],
+    },
     UNIMPLEMENTED,
     UNIMPLEMENTED,
     UNIMPLEMENTED,

@@ -478,6 +478,11 @@ impl Flags {
     pub fn is_set(self, mask: Flags) -> bool {
         self.0 & mask.0 != 0
     }
+
+    /// Get the flags if the condition is true, otherwise they're reset
+    pub const fn set_if(self, condition: bool) -> Flags {
+        if condition { self } else { Flags(0) }
+    }
 }
 
 impl BitOr for Flags {
