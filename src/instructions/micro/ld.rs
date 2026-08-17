@@ -1,0 +1,76 @@
+//! `LD` instructions
+
+use crate::instructions::{DataLoader, ExecResult};
+use crate::state::{Register, Register16, State};
+
+/// Load an immediate value into a 16 bits register
+///
+/// Returns `Done`
+pub fn ld_rr_nn(state: &mut State, register: Register16, cycles: u8) -> ExecResult<'_> {
+    state.set_register_16(register, state.wz());
+    ExecResult::Done(cycles)
+}
+
+/// Store the value of r in the memory pointed by rr
+///
+/// Doesn't return `Done`
+pub fn ld_pp_r(state: &State, reg16: Register16, reg8: Register) -> ExecResult<'_> {
+    ExecResult::Store {
+        address: state.get_register_16(reg16),
+        data: state.get_register_8(reg8),
+    }
+}
+
+/// Load an immediate value to an 8-bit register
+///
+/// Returns `Done`
+pub fn ld_r_n(state: &mut State, register: Register, cycles: u8) -> ExecResult<'_> {
+    state.set_register_8(register, state.z());
+    ExecResult::Done(cycles)
+}
+
+/// Load the value pointed by rr to r
+pub fn ld_r_pp(state: &mut State, reg8: Register, reg16: Register16) -> ExecResult<'_> {
+    let rr = state.get_register_16(reg16);
+    let r_mut = state.get_register_mut_8(reg8);
+    ExecResult::Load {
+        address: rr,
+        loader: DataLoader::new(r_mut),
+    }
+}
+
+/// Store the value of the 16-bit register in the immediate memory address
+pub fn ld_mm_rr(state: &State, reg: Register16) -> ExecResult<'_> {
+    let value = state.get_register_16_bytes(reg);
+    ExecResult::Store16 {
+        address: state.wz(),
+        data: value,
+    }
+}
+
+/// Load the data pointed by the immediate address into a 16-bit register
+pub fn ld_rr_mm(state: &mut State, reg: Register16) -> ExecResult<'_> {
+    let address = state.wz();
+    ExecResult::Load16 {
+        address,
+        loader: DataLoader::new(state.get_register_mut_16(reg)),
+    }
+}
+
+/// Store the value of the 8-bit register in the immediate memory address
+pub fn ld_mm_r(state: &State, reg: Register) -> ExecResult<'_> {
+    let value = state.get_register_8(reg);
+    ExecResult::Store {
+        address: state.wz(),
+        data: value,
+    }
+}
+
+/// Load the data pointed by the immediate address into an 8-bit register
+pub fn ld_r_mm(state: &mut State, reg: Register) -> ExecResult<'_> {
+    let address = state.wz();
+    ExecResult::Load {
+        address,
+        loader: DataLoader::new(state.get_register_mut_8(reg)),
+    }
+}

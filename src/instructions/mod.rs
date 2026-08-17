@@ -1,27 +1,33 @@
-//! # Instruction instructions.
+//! # Instruction
 //!
 //! The emulator decodes instructions using tables of opcodes. The tables are arrays with 256
 //! entries that map opcodes to instruction descriptions or in case of prefixes, other tables.
 //!
 //! The decoder just loads data from memory and walks over the tables until it read a complete
 //! instruction, then it can be executed.
+//!
+//! Each actual decoded instruction is an array of microinstructions. Each microinstruction is just
+//! a function pointer that operates on the machine [[State]] and return an [[ExecResult]]. After
+//! each instruction is decoded, its microinstructions are executed one by one until the end. Then
+//! the emulator reads and decodes the next instruction.
 
 pub mod decoder;
 pub mod micro;
 #[cfg(test)]
 mod test_cpu;
 
+use micro::Microinstruction;
 #[cfg(test)]
 pub use test_cpu::TEST_CPU;
 
 use crate::state::State;
 
-/// Value returned after executing Z80 code.
+/// Value returned after a microinstruction.
 #[derive(Debug)]
 pub enum ExecResult<'a> {
     /// Finished executing one instruction.
     ///
-    /// The number is the amount of clock cycles it took to run the instruction
+    /// The number is the amount of clock cycles it took to run the instruction.
     Done(u8),
     /// The emulator requests 1 byte of data from memory.
     Load {
@@ -83,6 +89,13 @@ pub enum ExecResult<'a> {
 #[derive(Debug)]
 pub struct DataLoader<'a, T>(&'a mut T);
 
+impl<'a, T> DataLoader<'a, T> {
+    /// Create a new data loader that stores data on the reference
+    pub fn new(buffer: &'a mut T) -> Self {
+        Self(buffer)
+    }
+}
+
 impl<'a> DataLoader<'a, u8> {
     /// Send a byte of data to the processor
     pub fn load(self, data: u8) {
@@ -106,11 +119,6 @@ impl<'a> DataLoader<'a, [u8; 2]> {
 ///
 /// This is a table of instructions that map opcode bytes to instructions
 pub type InstructionSet = [Instruction; 256];
-
-/// A microinstruction is just a function that operates on the state and yields an execution result.
-///
-/// In other words, it performs a simple operation.
-pub type Microinstruction = fn(&mut State) -> ExecResult;
 
 /// How many extra bytes an instruction have after its opcode
 #[derive(Debug, Clone, Copy)]
@@ -146,6 +154,14 @@ pub const NOP: Instruction = Instruction::Instruction {
 pub const HALT: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| ExecResult::Halt],
+};
+
+/// An unimplemented instruction
+///
+/// This isn't a real instruction and will cause the program to panic
+pub const UNIMPLEMENTED: Instruction = Instruction::Instruction {
+    extra_bytes: ExtraBytes::None,
+    micros: &[|_| unimplemented!("Instruction isn't implemented")],
 };
 
 #[cfg(test)]

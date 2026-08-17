@@ -1,6 +1,7 @@
 //! Instruction decoder
 
-use crate::instructions::{ExtraBytes, Instruction, InstructionSet, Microinstruction, micro};
+use crate::instructions::micro::Microinstruction;
+use crate::instructions::{ExtraBytes, Instruction, InstructionSet, micro};
 use crate::state::State;
 
 /// The instruction decoder.
@@ -69,7 +70,7 @@ impl Decoder {
             }
             DecoderState::Table => {
                 // Get the instruction from the table
-                match self.current[state.get_fetched_byte() as usize] {
+                match self.current[state.z() as usize] {
                     Instruction::Prefix(table) => {
                         // It's a prefix, so we need to move to the inner table
                         // and fetch another opcode

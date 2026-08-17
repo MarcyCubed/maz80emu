@@ -1,7 +1,7 @@
 //! A dummy CPU to test if the execution infrastructure works
 
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, InstructionSet};
-use crate::state::{Register, Register16};
+use crate::state::Register;
 
 /// Dummy CPU with a few testing instructions.
 ///
@@ -19,103 +19,103 @@ pub static TEST_CPU: InstructionSet = {
     table[0] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 0);
+            *state.a_mut() = 0;
             ExecResult::Done(4)
         }],
     };
     table[1] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 1);
+            *state.a_mut() = 1;
             ExecResult::Done(4)
         }],
     };
     table[2] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 2);
+            *state.a_mut() = 2;
             ExecResult::Done(4)
         }],
     };
     table[3] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 3);
+            *state.a_mut() = 3;
             ExecResult::Done(4)
         }],
     };
     table[4] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 4);
+            *state.a_mut() = 4;
             ExecResult::Done(4)
         }],
     };
     table[5] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 5);
+            *state.a_mut() = 5;
             ExecResult::Done(4)
         }],
     };
     table[6] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 6);
+            *state.a_mut() = 6;
             ExecResult::Done(4)
         }],
     };
     table[7] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            state.set_register_8(Register::A, 7);
+            *state.a_mut() = 7;
             ExecResult::Done(4)
         }],
     };
     table[8] = Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
         micros: &[|state| {
-            state.set_register_8(Register::B, state.get_fetched_byte());
+            *state.b_mut() = state.z();
             ExecResult::Done(4)
         }],
     };
     table[9] = Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
         micros: &[|state| {
-            state.set_register_8(Register::C, state.get_fetched_byte());
+            *state.c_mut() = state.z();
             ExecResult::Done(4)
         }],
     };
     table[10] = Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[|state| {
-            state.set_register_16(Register16::DE, state.get_fetched_word());
+            *state.de_mut() = state.wz_bytes();
             ExecResult::Done(4)
         }],
     };
     table[11] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            let a = state.get_register_8(Register::A);
-            let b = state.get_register_8(Register::B);
-            state.set_register_8(Register::A, a.wrapping_add(b));
+            let a = state.a();
+            let b = state.b();
+            *state.a_mut() = a.wrapping_add(b);
             ExecResult::Done(4)
         }],
     };
     table[12] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| {
-            let bc = state.get_register_16(Register16::BC);
-            let de = state.get_register_16(Register16::DE);
-            state.set_register_16(Register16::HL, bc.wrapping_add(de));
+            let bc = state.bc();
+            let de = state.de();
+            *state.hl_mut() = bc.wrapping_add(de).to_le_bytes();
             ExecResult::Done(4)
         }],
     };
     table[13] = Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[|state| ExecResult::Store16 {
-            address: state.get_fetched_word(),
-            data: state.get_register_16_bytes(Register16::HL),
+            address: state.wz(),
+            data: state.hl_bytes(),
         }],
     };
     table[14] = Instruction::Prefix(&TEST_PREFIX);
@@ -126,7 +126,7 @@ pub static TEST_CPU: InstructionSet = {
 pub static TEST_PREFIX: InstructionSet = [Instruction::Instruction {
     extra_bytes: ExtraBytes::One,
     micros: &[|state| {
-        state.set_register_8(Register::Flags, state.get_fetched_byte());
+        state.set_register_8(Register::Flags, state.z());
         ExecResult::Done(4)
     }],
 }; 256];

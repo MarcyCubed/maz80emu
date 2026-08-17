@@ -1,7 +1,8 @@
 //! The core of the emulator
 
 use crate::instructions::decoder::Decoder;
-use crate::instructions::{ExecResult, InstructionSet, Microinstruction};
+use crate::instructions::micro::Microinstruction;
+use crate::instructions::{ExecResult, InstructionSet};
 use crate::state::State;
 
 /// The Z80 emulator
