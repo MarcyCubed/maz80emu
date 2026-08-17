@@ -711,43 +711,183 @@ pub static Z80: [Instruction; 256] = [
             |_| ExecResult::Done(7),
         ],
     },
-    // Instruction 0x8f: ld a, a
+    // Instruction 0x7f: ld a, a
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| ld::ld_r_r(state, Register::A, Register::A, 4)],
     },
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
+    // Instruction 0x80: add a, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::B, 4)],
+    },
+    // Instruction 0x81: add a, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::C, 4)],
+    },
+    // Instruction 0x82: add a, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::D, 4)],
+    },
+    // Instruction 0x83: add a, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::E, 4)],
+    },
+    // Instruction 0x84: add a, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::H, 4)],
+    },
+    // Instruction 0x85: add a, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::L, 4)],
+    },
+    // Instruction 0x86: add a, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::add_a_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0x87: add a, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::add_a_r(state, Register::A, 4)],
+    },
+    // Instruction 0x88: adc a, b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::B, 4)],
+    },
+    // Instruction 0x89: adc a, c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::C, 4)],
+    },
+    // Instruction 0x8a: adc a, d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::D, 4)],
+    },
+    // Instruction 0x8b: adc a, e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::E, 4)],
+    },
+    // Instruction 0x8c: adc a, h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::H, 4)],
+    },
+    // Instruction 0x8d: adc a, l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::L, 4)],
+    },
+    // Instruction 0x8e: adc a, (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::adc_a_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0x8f: adc a, a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::adc_a_r(state, Register::A, 4)],
+    },
+    // Instruction 0x90: sub b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::B, 4)],
+    },
+    // Instruction 0x91: sub c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::C, 4)],
+    },
+    // Instruction 0x92: sub d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::D, 4)],
+    },
+    // Instruction 0x93: sub e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::E, 4)],
+    },
+    // Instruction 0x94: sub h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::H, 4)],
+    },
+    // Instruction 0x95: sub l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::L, 4)],
+    },
+    // Instruction 0x96: sub (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::sub_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0x97: sub a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sub_r(state, Register::A, 4)],
+    },
+    // Instruction 0x98: sbc b
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::B, 4)],
+    },
+    // Instruction 0x99: sbc c
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::C, 4)],
+    },
+    // Instruction 0x9a: sbc d
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::D, 4)],
+    },
+    // Instruction 0x9b: sbc e
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::E, 4)],
+    },
+    // Instruction 0x9c: sbc h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::H, 4)],
+    },
+    // Instruction 0x9d: sbc l
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::L, 4)],
+    },
+    // Instruction 0x9e: sbc (hl)
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_8(state, state.hl()),
+            |state| math::sbc_r(state, Register::Z, 7),
+        ],
+    },
+    // Instruction 0x9f: sbc a
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[|state| math::sbc_r(state, Register::A, 4)],
+    },
     UNIMPLEMENTED,
     UNIMPLEMENTED,
     UNIMPLEMENTED,

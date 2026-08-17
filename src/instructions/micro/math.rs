@@ -181,3 +181,45 @@ pub fn ccf(state: &mut State, cycles: u8) -> ExecResult<'_> {
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
+
+/// Add the value of a register to A
+pub fn add_a_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
+    add_a_r_common(state, reg, false, cycles)
+}
+
+/// Add the value of a register and the existing carry to A
+pub fn adc_a_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
+    add_a_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
+}
+
+/// Common part between add_a_r and adc_a_r
+fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult<'_> {
+    let a = state.a();
+    let n = state.get_register_8(reg);
+    let (a, flags, c) = add_flags(a, n, carry_in);
+    *state.a_mut() = a;
+    let flags = if c { flags | Flags::C } else { flags };
+    state.update_flags(flags);
+    ExecResult::Done(cycles)
+}
+
+/// Common part between sub_r and sbc_r
+fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult<'_> {
+    let a = state.a();
+    let n = state.get_register_8(reg);
+    let (a, flags, c) = sub_flags(a, n, carry_in);
+    *state.a_mut() = a;
+    let flags = if c { flags | Flags::C } else { flags } | Flags::N;
+    state.update_flags(flags);
+    ExecResult::Done(cycles)
+}
+
+/// Subtract the value of a register from A
+pub fn sub_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
+    sub_r_common(state, reg, false, cycles)
+}
+
+/// Subtract the value of a register and the existing carry from A
+pub fn sbc_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
+    sub_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
+}
