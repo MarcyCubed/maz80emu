@@ -27,7 +27,7 @@ impl Emulator {
     }
 
     /// Runs the emulator
-    pub fn run(&mut self) -> ExecResult<'_> {
+    pub fn run(&mut self) -> ExecResult {
         // If we're running microinstructions
         if self.state.mpc < self.micros.len() {
             let micro = self.micros[self.state.mpc];

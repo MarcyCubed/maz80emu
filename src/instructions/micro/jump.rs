@@ -1,13 +1,13 @@
 //! Jumps and other things that change the program counter
 
-use crate::instructions::{DataLoader, ExecResult};
+use crate::instructions::ExecResult;
 use crate::state::{Flags, Register16, State};
 
 /// Unconditional branch.
 ///
 /// This can be used to implement any kind of branch with a one byte immediate operand by adding
 /// the rest of the logic.
-pub fn jr_d(state: &mut State, cycles: u8) -> ExecResult<'_> {
+pub fn jr_d(state: &mut State, cycles: u8) -> ExecResult {
     let pc = state.pc().wrapping_add(state.z() as i8 as i16 as u16);
     *state.pc_mut() = pc.to_le_bytes();
     ExecResult::Done(cycles)
@@ -16,7 +16,7 @@ pub fn jr_d(state: &mut State, cycles: u8) -> ExecResult<'_> {
 /// Decrement B and jump to immediate offset if not zero.
 ///
 /// The number of cycles depends on if the instruction jumps or not.
-pub fn djnz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult<'_> {
+pub fn djnz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult {
     let b = state.b().wrapping_sub(1);
     *state.b_mut() = b;
     if b != 0 {
@@ -27,7 +27,7 @@ pub fn djnz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecRe
 }
 
 /// Jump if the zero flag isn't set
-pub fn jr_nz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult<'_> {
+pub fn jr_nz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult {
     if state.get_flags().is_set(Flags::Z) {
         ExecResult::Done(cycles_not_jump)
     } else {
@@ -36,7 +36,7 @@ pub fn jr_nz_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecR
 }
 
 /// Jump if the zero flag is set
-pub fn jr_z_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult<'_> {
+pub fn jr_z_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult {
     if state.get_flags().is_set(Flags::Z) {
         jr_d(state, cycles_jump)
     } else {
@@ -45,7 +45,7 @@ pub fn jr_z_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecRe
 }
 
 /// Jump if the carry flag isn't set
-pub fn jr_nc_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult<'_> {
+pub fn jr_nc_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult {
     if state.get_flags().is_set(Flags::C) {
         ExecResult::Done(cycles_not_jump)
     } else {
@@ -54,7 +54,7 @@ pub fn jr_nc_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecR
 }
 
 /// Jump if the carry flag is set
-pub fn jr_c_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult<'_> {
+pub fn jr_c_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecResult {
     if state.get_flags().is_set(Flags::C) {
         jr_d(state, cycles_jump)
     } else {
@@ -65,7 +65,7 @@ pub fn jr_c_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecRe
 /// Pops the stack and jump to the value loaded into `WZ`.
 ///
 /// This assumes the value pointed by `SP` was loaded into `WZ`
-pub fn ret(state: &mut State, cycles: u8) -> ExecResult<'_> {
+pub fn ret(state: &mut State, cycles: u8) -> ExecResult {
     // Jump
     *state.pc_mut() = state.wz_bytes();
     // Pop
@@ -74,18 +74,15 @@ pub fn ret(state: &mut State, cycles: u8) -> ExecResult<'_> {
 }
 
 /// Pops the stack into a 16-bit register
-pub fn pop(state: &mut State, reg: Register16) -> ExecResult<'_> {
+pub fn pop(state: &mut State, reg: Register16) -> ExecResult {
     let address = state.sp();
     // Pop
     *state.sp_mut() = state.sp().wrapping_add(2).to_le_bytes();
-    ExecResult::Load16 {
-        address,
-        loader: DataLoader(state.get_register_mut_16(reg)),
-    }
+    state.load_word_into(address, reg)
 }
 
 /// Push a 16-bit register into the stack into
-pub fn push(state: &mut State, reg: Register16) -> ExecResult<'_> {
+pub fn push(state: &mut State, reg: Register16) -> ExecResult {
     let address = state.sp().wrapping_sub(2);
     *state.sp_mut() = address.to_le_bytes();
 
@@ -96,7 +93,7 @@ pub fn push(state: &mut State, reg: Register16) -> ExecResult<'_> {
 }
 
 /// Jump to the immediate value if the condition is true
-pub fn jp_cc_nn(state: &mut State, cond: bool, cycles: u8) -> ExecResult<'_> {
+pub fn jp_cc_nn(state: &mut State, cond: bool, cycles: u8) -> ExecResult {
     if cond {
         *state.pc_mut() = state.wz_bytes();
     }
@@ -104,7 +101,7 @@ pub fn jp_cc_nn(state: &mut State, cond: bool, cycles: u8) -> ExecResult<'_> {
 }
 
 /// Push `PC` into the stack if the condition is true. Otherwise, finish instruction execution
-pub fn push_pc_or_break(state: &mut State, cond: bool, cycles: u8) -> ExecResult<'_> {
+pub fn push_pc_or_break(state: &mut State, cond: bool, cycles: u8) -> ExecResult {
     if cond {
         let sp = state.sp().wrapping_sub(2);
         *state.sp_mut() = sp.to_le_bytes();
@@ -119,13 +116,13 @@ pub fn push_pc_or_break(state: &mut State, cond: bool, cycles: u8) -> ExecResult
 }
 
 /// Jump to the immediate value
-pub fn jr_mm(state: &mut State, cycles: u8) -> ExecResult<'_> {
+pub fn jr_mm(state: &mut State, cycles: u8) -> ExecResult {
     *state.pc_mut() = state.wz_bytes();
     ExecResult::Done(cycles)
 }
 
 /// Jump to the address
-pub fn jp(state: &mut State, address: u16, cycles: u8) -> ExecResult<'_> {
+pub fn jp(state: &mut State, address: u16, cycles: u8) -> ExecResult {
     *state.pc_mut() = address.to_le_bytes();
     ExecResult::Done(cycles)
 }

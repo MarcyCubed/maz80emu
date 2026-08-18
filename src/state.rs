@@ -8,6 +8,7 @@
 //! the Z80 can transfer both 8 and 16 bits to memory in a single instruction, this gives us
 //! flexibility to pass around references to both 8-bit and 16-bit data types.
 
+use crate::instructions::ExecResult;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not, Sub, SubAssign};
 
 /// The list of registers in a Z80 CPU.
@@ -15,11 +16,12 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not, Sub, SubAssign};
 /// The order may seem a bit strange, but that's because the Z80 is a little endian CPU. This means
 /// when we store in memory the value of 16 bit registers, the least significant byte goes first.
 /// If we keep our registers pairs also in little endian order we may avoid some format translation.
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub enum Register {
     /// The flags
     Flags,
     /// The accumulator
+    #[default]
     A,
     /// General purpose C register
     C,
@@ -60,9 +62,10 @@ pub enum Register {
 }
 
 /// The list of 16 bit registers.
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
 pub enum Register16 {
     /// Accumulator and flags
+    #[default]
     AF,
     /// B and C
     BC,
@@ -105,6 +108,10 @@ pub struct State {
     pub iff2: bool,
     /// Which microinstruction is being executed
     pub mpc: usize,
+    /// Load to this register on a [[State::load_data_8]] call
+    load_register: Register,
+    /// Load to this register on a [[State::load_data_16]] call
+    load_register_16: Register16,
 }
 
 impl State {
@@ -422,6 +429,34 @@ impl State {
     /// Skip the execution of the current instruction and proceed to the next
     pub fn skip_instruction(&mut self) {
         self.mpc = usize::MAX;
+    }
+
+    /// Receive a byte from memory or I/O ports
+    pub fn load_data_8(&mut self, data: u8) {
+        self.set_register_8(self.load_register, data);
+    }
+
+    /// Receive a word from memory or I/O ports
+    pub fn load_data_16(&mut self, data: [u8; 2]) {
+        self.set_register_16_bytes(self.load_register_16, data);
+    }
+
+    /// Request to load a byte from a memory address into a register
+    pub fn load_byte_into(&mut self, address: u16, reg: Register) -> ExecResult {
+        self.load_register = reg;
+        ExecResult::Load { address }
+    }
+
+    /// Request to load a word from a memory address into a register
+    pub fn load_word_into(&mut self, address: u16, reg: Register16) -> ExecResult {
+        self.load_register_16 = reg;
+        ExecResult::Load16 { address }
+    }
+
+    /// Request to read a byte from an I/O port
+    pub fn input_into(&mut self, port: u16, reg: Register) -> ExecResult {
+        self.load_register = reg;
+        ExecResult::In { port }
     }
 }
 

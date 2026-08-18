@@ -20,11 +20,9 @@ use micro::Microinstruction;
 #[cfg(test)]
 pub use test_cpu::TEST_CPU;
 
-use crate::state::State;
-
 /// Value returned after a microinstruction.
-#[derive(Debug)]
-pub enum ExecResult<'a> {
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ExecResult {
     /// Finished executing one instruction.
     ///
     /// The number is the amount of clock cycles it took to run the instruction.
@@ -33,15 +31,11 @@ pub enum ExecResult<'a> {
     Load {
         /// The memory address to be read.
         address: u16,
-        /// The loader.
-        loader: DataLoader<'a, u8>,
     },
     /// The emulator requests 2 bytes of data from memory.
     Load16 {
         /// The memory address to be read.
         address: u16,
-        /// The loader.
-        loader: DataLoader<'a, [u8; 2]>,
     },
     /// The emulator wants to store a byte in the given memory `address`.
     Store {
@@ -58,14 +52,9 @@ pub enum ExecResult<'a> {
         data: [u8; 2],
     },
     /// The emulator wants to read data from an I/O port.
-    ///
-    /// `loader` should be used to store the value from the port in the register.
-    /// If it's not used, the register will keep its original value.
     In {
         /// The port address
         port: u16,
-        /// The thing pass the value read from the port to the processor
-        loader: DataLoader<'a, u8>,
     },
     /// The emulator wants to write a byte to an I/O port.
     Out {
@@ -78,41 +67,6 @@ pub enum ExecResult<'a> {
     ///
     /// The processor stopped running until it receives an interruption
     Halt,
-}
-
-/// The processor requests data.
-///
-/// A `DataLoader` is returned by the emulator whenever the Z80 processor needs to access external
-/// data, from either the memory or I/O ports.
-///
-/// The loader is consumed after sending the data.
-#[derive(Debug)]
-pub struct DataLoader<'a, T>(&'a mut T);
-
-impl<'a, T> DataLoader<'a, T> {
-    /// Create a new data loader that stores data on the reference
-    pub fn new(buffer: &'a mut T) -> Self {
-        Self(buffer)
-    }
-}
-
-impl<'a> DataLoader<'a, u8> {
-    /// Send a byte of data to the processor
-    pub fn load(self, data: u8) {
-        *self.0 = data
-    }
-}
-
-impl<'a> DataLoader<'a, [u8; 2]> {
-    /// Send two bytes of data to the processor
-    pub fn load_bytes(self, data: [u8; 2]) {
-        *self.0 = data
-    }
-
-    /// Send a 16-bit number to the processor
-    pub fn load_value(self, value: u16) {
-        self.load_bytes(value.to_le_bytes())
-    }
 }
 
 /// The processor's instruction set.
@@ -168,20 +122,20 @@ pub const UNIMPLEMENTED: Instruction = Instruction::Instruction {
 mod tests {
     use super::*;
     use crate::instructions::decoder::Decoder;
-    use crate::state::{Register, Register16};
+    use crate::state::{Register, Register16, State};
 
     /// Run one instruction
     fn run_instruction(state: &mut State, decoder: &mut Decoder, ram: &mut [u8]) {
         loop {
             for instr in decoder.decode(state) {
                 match instr(state) {
-                    ExecResult::Load { address, loader } => {
-                        loader.load(ram[address as usize]);
+                    ExecResult::Load { address } => {
+                        state.load_data_8(ram[address as usize]);
                     }
-                    ExecResult::Load16 { address, loader } => {
+                    ExecResult::Load16 { address } => {
                         let address = address as usize;
                         let bytes = [ram[address], ram[address + 1]];
-                        loader.load_bytes(bytes);
+                        state.load_data_16(bytes);
                     }
                     ExecResult::Store { address, data } => {
                         ram[address as usize] = data;
