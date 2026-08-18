@@ -29,6 +29,7 @@ use crate::instructions::{DataLoader, ExecResult};
 use crate::state::{Register16, State};
 
 pub mod bit;
+pub mod io;
 pub mod jump;
 pub mod ld;
 pub mod math;

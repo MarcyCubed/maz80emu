@@ -8,3 +8,10 @@ pub fn ex_af_af(state: &mut State, cycles: u8) -> ExecResult<'_> {
     state.alternate[Register16::AF as usize] = af;
     ExecResult::Done(cycles)
 }
+
+/// Switch between register sets
+pub fn exx(state: &mut State, cycles: u8) -> ExecResult<'_> {
+    let dest = &mut state.registers[Register16::BC as usize..=Register16::HL as usize];
+    dest.copy_from_slice(&state.alternate[Register16::BC as usize..=Register16::HL as usize]);
+    ExecResult::Done(cycles)
+}
