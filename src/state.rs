@@ -490,6 +490,11 @@ impl Flags {
     pub const fn set_if(self, condition: bool) -> Flags {
         if condition { self } else { Flags(0) }
     }
+
+    /// Get the parity flag for a value
+    pub const fn parity(value: u8) -> Self {
+        Flags::P.set_if(value.count_ones() & 1 == 0)
+    }
 }
 
 impl BitOr for Flags {

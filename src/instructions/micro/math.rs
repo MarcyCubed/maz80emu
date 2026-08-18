@@ -227,7 +227,7 @@ pub fn sbc_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
 /// Perform an `AND` operation between the register and the accumulator
 pub fn and_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
     let a = state.a() & state.get_register_8(reg);
-    let flags = Flags::H | Flags::from_value(a) | Flags::P.set_if(a.count_ones() & 1 != 0);
+    let flags = Flags::H | Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
     state.update_flags(flags);
     ExecResult::Done(cycles)
@@ -236,7 +236,7 @@ pub fn and_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
 /// Perform a `XOR` operation between the register and the accumulator
 pub fn xor_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
     let a = state.a() ^ state.get_register_8(reg);
-    let flags = Flags::from_value(a) | Flags::P.set_if(a.count_ones() & 1 != 0);
+    let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
     state.update_flags(flags);
     ExecResult::Done(cycles)
@@ -245,7 +245,7 @@ pub fn xor_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
 /// Perform an `OR` operation between the register and the accumulator
 pub fn or_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult<'_> {
     let a = state.a() | state.get_register_8(reg);
-    let flags = Flags::from_value(a) | Flags::P.set_if(a.count_ones() & 1 != 0);
+    let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
     state.update_flags(flags);
     ExecResult::Done(cycles)
