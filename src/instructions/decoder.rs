@@ -18,6 +18,10 @@ pub(crate) struct Decoder {
     state: DecoderState,
     /// The last instruction to be loaded
     last_instruction: &'static [Microinstruction],
+    /// The printer of the last instruction
+    last_printer: fn(&State),
+    /// Is tracing enabled?
+    is_tracing: bool,
 }
 
 /// Decode state machine states
@@ -42,6 +46,8 @@ impl Decoder {
             current: instruction_set,
             state: INITIAL,
             last_instruction: &[],
+            last_printer: |_| {},
+            is_tracing: false,
         }
     }
 
@@ -62,6 +68,9 @@ impl Decoder {
         match self.state {
             DecoderState::FetchOpcode => {
                 // Did nothing yet. We have to load the upcode
+                if self.is_tracing {
+                    print!("{:0>4x}h   ", state.pc())
+                }
 
                 // Next state is to check the table
                 self.state = DecoderState::Table;
@@ -80,7 +89,9 @@ impl Decoder {
                     Instruction::Instruction {
                         extra_bytes,
                         micros,
+                        printer,
                     } => {
+                        self.last_printer = printer;
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
@@ -104,8 +115,21 @@ impl Decoder {
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions
                 self.reset();
+                if self.is_tracing {
+                    (self.last_printer)(state);
+                }
                 self.last_instruction
             }
         }
+    }
+
+    /// Show the instructions as they are decoded
+    pub(crate) fn enable_tracing(&mut self) {
+        self.is_tracing = true;
+    }
+
+    /// Don't show the instructions
+    pub(crate) fn disable_tracing(&mut self) {
+        self.is_tracing = false;
     }
 }

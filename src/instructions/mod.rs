@@ -16,6 +16,7 @@ pub mod micro;
 #[cfg(test)]
 mod test_cpu;
 
+use crate::state::State;
 use micro::Microinstruction;
 #[cfg(test)]
 pub use test_cpu::TEST_CPU;
@@ -95,6 +96,8 @@ pub enum Instruction {
         extra_bytes: ExtraBytes,
         /// The list of micro instructions implementing the instruction
         micros: &'static [Microinstruction],
+        /// Printer for the instruction
+        printer: fn(&State),
     },
 }
 
@@ -102,12 +105,14 @@ pub enum Instruction {
 pub const NOP: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| ExecResult::Done(4)],
+    printer: |_| println!("nop"),
 };
 
 /// HALT instruction
 pub const HALT: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| ExecResult::Halt],
+    printer: |_| println!("halt"),
 };
 
 /// An unimplemented instruction
@@ -116,6 +121,7 @@ pub const HALT: Instruction = Instruction::Instruction {
 pub const UNIMPLEMENTED: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| unimplemented!("Instruction isn't implemented")],
+    printer: |_| println!("crash"),
 };
 
 #[cfg(test)]

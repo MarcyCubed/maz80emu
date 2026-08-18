@@ -22,6 +22,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 0;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 0"),
     };
     table[1] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -29,6 +30,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 1;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 1"),
     };
     table[2] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -36,6 +38,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 2;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 2"),
     };
     table[3] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -43,6 +46,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 3;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 3"),
     };
     table[4] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -50,6 +54,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 4;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 4"),
     };
     table[5] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -57,6 +62,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 5;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 5"),
     };
     table[6] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -64,6 +70,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 6;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 6"),
     };
     table[7] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -71,6 +78,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = 7;
             ExecResult::Done(4)
         }],
+        printer: |_| println!("A = 7"),
     };
     table[8] = Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -78,6 +86,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.b_mut() = state.z();
             ExecResult::Done(4)
         }],
+        printer: |state| println!("B = {}", state.z()),
     };
     table[9] = Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -85,6 +94,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.c_mut() = state.z();
             ExecResult::Done(4)
         }],
+        printer: |state| println!("C = {}", state.z()),
     };
     table[10] = Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -92,6 +102,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.de_mut() = state.wz_bytes();
             ExecResult::Done(4)
         }],
+        printer: |state| println!("DE = {}", state.wz()),
     };
     table[11] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -101,6 +112,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = a.wrapping_add(b);
             ExecResult::Done(4)
         }],
+        printer: |state| println!("A = A + B"),
     };
     table[12] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -110,6 +122,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.hl_mut() = bc.wrapping_add(de).to_le_bytes();
             ExecResult::Done(4)
         }],
+        printer: |state| println!("HL = BC + DE"),
     };
     table[13] = Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -117,6 +130,7 @@ pub static TEST_CPU: InstructionSet = {
             address: state.wz(),
             data: state.hl_bytes(),
         }],
+        printer: |state| println!("({} = HL", state.wz()),
     };
     table[14] = Instruction::Prefix(&TEST_PREFIX);
     table
@@ -129,4 +143,5 @@ pub static TEST_PREFIX: InstructionSet = [Instruction::Instruction {
         state.set_register_8(Register::Flags, state.z());
         ExecResult::Done(4)
     }],
+    printer: |state| println!("F = {}", state.z()),
 }; 256];

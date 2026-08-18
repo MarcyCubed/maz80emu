@@ -109,4 +109,14 @@ impl Emulator {
             }
         }
     }
+
+    /// Show the instructions as they are executed
+    pub fn enable_tracing(&mut self) {
+        self.decoder.enable_tracing();
+    }
+
+    /// Stop showing the instructions
+    pub fn disable_tracing(&mut self) {
+        self.decoder.disable_tracing();
+    }
 }
