@@ -95,6 +95,9 @@ impl Decoder {
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
+                                if self.is_tracing {
+                                    (self.last_printer)(state);
+                                }
                                 self.reset();
                                 micros
                             }
