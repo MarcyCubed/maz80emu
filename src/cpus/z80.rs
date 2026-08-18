@@ -1,8 +1,10 @@
 //! Zilog Z80 CPU
 
-use crate::instructions::micro::{bit, jump, ld, load_8, math, transfer};
+use crate::instructions::micro::{
+    bit, jump, ld, load_8, load_16, load_16_or_break, math, transfer,
+};
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP, UNIMPLEMENTED};
-use crate::state::{Register, Register16};
+use crate::state::{Flags, Register, Register16};
 
 pub static Z80: [Instruction; 256] = [
     // Instruction 0x00: nop
@@ -1060,22 +1062,113 @@ pub static Z80: [Instruction; 256] = [
         extra_bytes: ExtraBytes::None,
         micros: &[|state| math::cp_r(state, Register::A, 4)],
     },
+    // Instruction 0xc0: ret nz
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_16_or_break(state, state.sp(), !state.get_flags().is_set(Flags::Z), 5),
+            |state| jump::ret(state, 11),
+        ],
+    },
+    // Instruction 0xc1: pop bc
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| jump::pop(state, Register16::BC),
+            |_| ExecResult::Done(10),
+        ],
+    },
+    // Instruction 0xc2: jp nz, nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[|state| jump::jp_cc_nn(state, !state.get_flags().is_set(Flags::Z), 10)],
+    },
+    // Instruction 0xc3: jp nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[|state| jump::jp_cc_nn(state, true, 10)],
+    },
+    // Instruction 0xc4: call nz, nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[
+            |state| jump::push_pc_or_break(state, !state.get_flags().is_set(Flags::Z), 10),
+            |state| jump::jr_mm(state, 17),
+        ],
+    },
+    // Instruction 0xc5: push bc
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| jump::push(state, Register16::BC),
+            |_| ExecResult::Done(11),
+        ],
+    },
+    // Instruction 0xc6: add a, n
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::One,
+        micros: &[|state| math::add_a_r(state, Register::Z, 7)],
+    },
+    // Instruction 0xc7: rst 00h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| jump::push(state, Register16::PC),
+            |state| jump::rst(state, 0, 11),
+        ],
+    },
+    // Instruction 0xc8: ret z
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_16_or_break(state, state.sp(), state.get_flags().is_set(Flags::Z), 5),
+            |state| jump::ret(state, 11),
+        ],
+    },
+    // Instruction 0xc9: ret
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| load_16(state, state.sp()),
+            |state| jump::ret(state, 11),
+        ],
+    },
+    // Instruction 0xca: jp z, nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[|state| jump::jp_cc_nn(state, state.get_flags().is_set(Flags::Z), 10)],
+    },
+    // Bit instructions
     UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
-    UNIMPLEMENTED,
+    // Instruction 0xcc: call z, nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[
+            |state| jump::push_pc_or_break(state, state.get_flags().is_set(Flags::Z), 10),
+            |state| jump::jr_mm(state, 17),
+        ],
+    },
+    // Instruction 0xcd: call nn
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::Two,
+        micros: &[
+            |state| jump::push(state, Register16::PC),
+            |state| jump::jr_mm(state, 17),
+        ],
+    },
+    // Instruction 0xce: adc a, n
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::One,
+        micros: &[|state| math::adc_a_r(state, Register::Z, 7)],
+    },
+    // Instruction 0xcf: rst 08h
+    Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| jump::push(state, Register16::PC),
+            |state| jump::rst(state, 0x8, 11),
+        ],
+    },
     UNIMPLEMENTED,
     UNIMPLEMENTED,
     UNIMPLEMENTED,

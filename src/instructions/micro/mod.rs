@@ -19,6 +19,7 @@
 //! * `pp` - a 16-bit register that contains a memory address.
 //! * `mm` - an immediate value that is used as a memory address.
 //! * `d` - an immediate offset added to some register
+//! * `cc` - a boolean condition
 //!
 //! Some of these functions have a `cycles` parameter. This means the function will return
 //! [[ExecResult::Done]] by itself. Otherwise, there should be another microinstruction that returns
@@ -77,5 +78,16 @@ pub fn load_16(state: &mut State, address: u16) -> ExecResult<'_> {
     ExecResult::Load16 {
         address,
         loader: DataLoader(reg),
+    }
+}
+
+/// If the condition is true, load a 16 bit value to `WZ`. Otherwise, abort running the instruction
+/// and return [[ExecResult::Done]],
+pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u8) -> ExecResult<'_> {
+    if cond {
+        load_16(state, address)
+    } else {
+        state.skip_instruction();
+        ExecResult::Done(cycles)
     }
 }

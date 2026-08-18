@@ -103,6 +103,8 @@ pub struct State {
     pub iff1: bool,
     /// Temporary storage for `iff1``
     pub iff2: bool,
+    /// Which microinstruction is being executed
+    pub mpc: usize,
 }
 
 impl State {
@@ -415,6 +417,11 @@ impl State {
     /// Get a mutable reference to the register WZ
     pub fn wz_mut(&mut self) -> &mut [u8; 2] {
         self.get_register_mut_16(Register16::WZ)
+    }
+
+    /// Skip the execution of the current instruction and proceed to the next
+    pub fn skip_instruction(&mut self) {
+        self.mpc = usize::MAX;
     }
 }
 

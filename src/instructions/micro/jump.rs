@@ -1,7 +1,7 @@
 //! Jumps and other things that change the program counter
 
-use crate::instructions::ExecResult;
-use crate::state::{Flags, State};
+use crate::instructions::{DataLoader, ExecResult};
+use crate::state::{Flags, Register16, State};
 
 /// Unconditional branch.
 ///
@@ -60,4 +60,72 @@ pub fn jr_c_d(state: &mut State, cycles_jump: u8, cycles_not_jump: u8) -> ExecRe
     } else {
         ExecResult::Done(cycles_not_jump)
     }
+}
+
+/// Pops the stack and jump to the value loaded into `WZ`.
+///
+/// This assumes the value pointed by `SP` was loaded into `WZ`
+pub fn ret(state: &mut State, cycles: u8) -> ExecResult<'_> {
+    // Jump
+    *state.pc_mut() = state.wz_bytes();
+    // Pop
+    *state.sp_mut() = state.sp().wrapping_add(2).to_le_bytes();
+    ExecResult::Done(cycles)
+}
+
+/// Pops the stack into a 16-bit register
+pub fn pop(state: &mut State, reg: Register16) -> ExecResult<'_> {
+    let address = state.sp();
+    // Pop
+    *state.sp_mut() = state.sp().wrapping_add(2).to_le_bytes();
+    ExecResult::Load16 {
+        address,
+        loader: DataLoader(state.get_register_mut_16(reg)),
+    }
+}
+
+/// Push a 16-bit register into the stack into
+pub fn push(state: &mut State, reg: Register16) -> ExecResult<'_> {
+    let address = state.sp().wrapping_sub(2);
+    *state.sp_mut() = address.to_le_bytes();
+
+    ExecResult::Store16 {
+        address,
+        data: state.get_register_16_bytes(reg),
+    }
+}
+
+/// Jump to the immediate value if the condition is true
+pub fn jp_cc_nn(state: &mut State, cond: bool, cycles: u8) -> ExecResult<'_> {
+    if cond {
+        *state.pc_mut() = state.wz_bytes();
+    }
+    ExecResult::Done(cycles)
+}
+
+/// Push `PC` into the stack if the condition is true. Otherwise, finish instruction execution
+pub fn push_pc_or_break(state: &mut State, cond: bool, cycles: u8) -> ExecResult<'_> {
+    if cond {
+        let sp = state.sp().wrapping_sub(2);
+        *state.sp_mut() = sp.to_le_bytes();
+        ExecResult::Store16 {
+            address: sp,
+            data: state.pc_bytes(),
+        }
+    } else {
+        state.skip_instruction();
+        ExecResult::Done(cycles)
+    }
+}
+
+/// Jump to the immediate value
+pub fn jr_mm(state: &mut State, cycles: u8) -> ExecResult<'_> {
+    *state.pc_mut() = state.wz_bytes();
+    ExecResult::Done(cycles)
+}
+
+/// Jump to the address
+pub fn rst(state: &mut State, address: u16, cycles: u8) -> ExecResult<'_> {
+    *state.pc_mut() = address.to_le_bytes();
+    ExecResult::Done(cycles)
 }
