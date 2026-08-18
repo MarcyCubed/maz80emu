@@ -92,3 +92,11 @@ pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u8)
         ExecResult::Done(cycles)
     }
 }
+
+/// Microinstruction component to write a 16-bit value to a memory location
+pub fn store_16(address: u16, data: u16) -> ExecResult<'static> {
+    ExecResult::Store16 {
+        address,
+        data: data.to_le_bytes(),
+    }
+}

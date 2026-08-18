@@ -125,7 +125,7 @@ pub fn jr_mm(state: &mut State, cycles: u8) -> ExecResult<'_> {
 }
 
 /// Jump to the address
-pub fn rst(state: &mut State, address: u16, cycles: u8) -> ExecResult<'_> {
+pub fn jp(state: &mut State, address: u16, cycles: u8) -> ExecResult<'_> {
     *state.pc_mut() = address.to_le_bytes();
     ExecResult::Done(cycles)
 }
