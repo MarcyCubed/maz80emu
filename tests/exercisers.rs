@@ -36,33 +36,62 @@ fn bdos_call(state: &State, memory: &[u8; 0x10000]) {
                 print!("{}", memory[addr] as char);
                 addr += 1;
             }
-            println!();
         }
         _ => panic!("Unknown BDOS call"),
     }
 }
 
-#[test]
-fn pre_exerciser_8080() {
-    let mut pre_exerciser = load_program(include_bytes!("8080PRE.COM"));
+/// Run a program in a very limited CP/M environment
+fn run_program(program: &[u8]) {
+    run_memory(load_program(program));
+}
+
+/// Run the program stored in memory
+fn run_memory(mut memory: [u8; 0x10000]) {
+    //let mut memory = load_program(program);
     let mut emulator = Emulator::new_with_instruction_set(&Z80);
     // Point PC to the start of the program
     emulator.state.set_register_16(Register16::PC, 0x100);
-    emulator.enable_tracing();
+    //emulator.enable_tracing();
     loop {
-        match emulator.run_with_full_memory(&mut pre_exerciser) {
+        match emulator.run_with_full_memory(&mut memory) {
             ExecResult::In { .. } => {
-                bdos_call(&emulator.state, &pre_exerciser);
+                bdos_call(&emulator.state, &memory);
             }
             ExecResult::Out { .. } => {
-                println!("Aborted Test")
+                println!();
+                println!("Finished execution");
+                break;
             }
             ExecResult::Halt => {
+                println!();
                 println!("Crashed");
                 break;
             }
             _ => {}
         }
     }
-    println!("Finished execution");
+}
+
+#[test]
+fn pre_exerciser_8080() {
+    run_program(include_bytes!("8080PRE.COM"));
+}
+
+#[test]
+fn exerciser_8080() {
+    run_program(include_bytes!("8080EXER.COM"));
+}
+
+#[test]
+fn tst_8080() {
+    let mut memory = load_program(include_bytes!("TST8080.COM"));
+    // Patch the program to address how the Z80 and the 8080 handle the P flag differently
+    memory[0x1f2] = 0xea; // jp po, nn => jp pe,nn
+    memory[0x22e] = 0xea; // jp po, nn => jp pe,nn
+    memory[0x2af] = 0xe4; // call pe, nn => call po, nn
+    memory[0x2d0] = 0xe4; // call pe, nn => call po, nn
+    memory[0x2d9] = 0xe8; // ret po => ret pe
+    memory[0x2e1] = 0xe0; // ret pe => ret po
+    run_memory(memory)
 }

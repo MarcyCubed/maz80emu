@@ -4,7 +4,13 @@ use crate::instructions::ExecResult;
 use crate::state::{Flags, Register, Register16, State};
 
 /// The bit representing the sign
-const SIGN_BIT: u8 = 0b10000000;
+const SIGN_BIT: u16 = 1 << 7;
+
+/// The bit that can receive a half carry
+const HALF_CARRY_BIT: u16 = 1 << 4;
+
+/// The bit out of u8 range
+const CARRY_BIT: u16 = 1 << 8;
 
 /// Increment a 16-bit register
 pub fn inc_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult {
@@ -18,50 +24,50 @@ pub fn dec_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult
     ExecResult::Done(cycles)
 }
 
-/// Add two values and a carry-in together, getting the flags
+/// Perform an arithmetic operation on the values, getting the assigned flags
 ///
-/// Return the sum, the flags and the carry-out. The flags S, Z, V and H are updated. The C flag
-/// isn't.
-fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags, bool) {
-    let a16 = a as u16;
-    let b16 = b as u16;
-    // We'll add the numbers nybble by nybble
-    let sum_low = (a16 & 0xF) + (b16 & 0xF) + carry_in as u16;
-    let sum = (a16 & 0xF0) + (b16 & 0xF0) + sum_low;
+/// Return the sum, the flags and the carry-out. The flags S, Z, V, C and H are updated.
+fn arithmetic_flags(a: u8, b: u8, carry_in: bool, op: fn(u16, u16) -> u16) -> (u8, Flags) {
+    let a = a as u16;
+    let b = b as u16;
+    // Do the math
+    let c = op(op(a, b), carry_in as u16);
     // Updates the S and Z flags
-    let mut flags = Flags::from_value(sum as u8);
+    let mut flags = Flags::from_value(c as u8);
     // Half carry
-    if sum_low > 0xF {
-        flags |= Flags::H
+    if (a ^ b) & HALF_CARRY_BIT != c & HALF_CARRY_BIT {
+        flags |= Flags::H;
     }
     // Overflow == if sign bit was overwritten
-    if (a ^ b) & SIGN_BIT == 0 && (a ^ sum as u8) & SIGN_BIT != 0 {
+    if a & SIGN_BIT == b & SIGN_BIT && a & SIGN_BIT != c & SIGN_BIT {
         // Overflow
         flags |= Flags::V;
     }
-
-    (sum as u8, flags, sum > u8::MAX as u16)
+    // Carry
+    if c & CARRY_BIT != 0 {
+        flags |= Flags::C;
+    }
+    (c as u8, flags)
 }
 
-/// Subtract one value from the other
-///
-/// Return the difference, the flags and the borrow. The C flag is never set in flags
-fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags, bool) {
-    let b = -(b as i8) as u8;
-    let (sum, flags, borrow) = add_flags(a, b, borrow_in);
-    // subtraction flag
-    let flags = flags | Flags::N;
-    (sum, flags, borrow)
+/// Add two values and a carry-in together, getting the sum and the flags
+fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
+    arithmetic_flags(a, b, carry_in, u16::wrapping_add)
+}
+
+/// Subtract one value and the carry from another, getting the difference and the flags
+fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
+    arithmetic_flags(a, b, borrow_in, u16::wrapping_sub)
 }
 
 /// Increment an 8-bit register
 ///
 /// Return Done
 pub fn inc_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
-    let (inc, flags, _) = add_flags(state.get_register_8(register), 1, false);
+    let (inc, flags) = add_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, inc);
     // Old C flag || Computed new flags
-    let flags = (state.get_flags() & Flags::C) | flags;
+    let flags = (state.get_flags() & Flags::C) | (flags - Flags::C);
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -70,10 +76,10 @@ pub fn inc_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
 ///
 /// Return Done
 pub fn dec_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
-    let (dec, flags, _) = sub_flags(state.get_register_8(register), 1, false);
+    let (dec, flags) = sub_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, dec);
     // Old C flag || Computed new flags
-    let flags = (state.get_flags() & Flags::C) | flags;
+    let flags = (state.get_flags() & Flags::C) | (flags - Flags::C);
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -95,7 +101,7 @@ pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u8) -> ExecRes
     }
     state.update_flags(flags);
     // Store the result in HL
-    *state.hl_mut() = hl.to_le_bytes();
+    *state.hl_mut() = result.to_le_bytes();
     ExecResult::Done(cycles)
 }
 
@@ -118,7 +124,7 @@ pub fn daa(state: &mut State, cycles: u8) -> ExecResult {
         flags |= Flags::C;
     }
     // Get the result
-    let a = if flags_0.is_set(Flags::N) {
+    let a = if !flags_0.is_set(Flags::N) {
         a.wrapping_add(diff)
     } else {
         a.wrapping_sub(diff)
@@ -196,9 +202,9 @@ pub fn adc_a_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult {
     let a = state.a();
     let n = state.get_register_8(reg);
-    let (a, flags, c) = add_flags(a, n, carry_in);
+    let (a, flags) = add_flags(a, n, carry_in);
+    //println!(" a = {:x}h", a);
     *state.a_mut() = a;
-    let flags = if c { flags | Flags::C } else { flags };
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -207,9 +213,9 @@ fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) 
 fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult {
     let a = state.a();
     let n = state.get_register_8(reg);
-    let (a, flags, c) = sub_flags(a, n, carry_in);
+    let (a, flags) = sub_flags(a, n, carry_in);
+    //println!(" a = {:x}h  x = {:x}h  ", a, n);
     *state.a_mut() = a;
-    let flags = if c { flags | Flags::C } else { flags } | Flags::N;
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -253,7 +259,8 @@ pub fn or_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 
 /// Compare the accumulator and the register
 pub fn cp_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
-    let (_, flags, carry_out) = sub_flags(state.a(), state.get_register_8(reg), false);
-    state.update_flags(flags | Flags::C.set_if(carry_out) | Flags::N);
+    //println!(" a = {:x}h  x = {:x}h  ", state.a(), state.get_register_8(reg));
+    let (_, flags) = sub_flags(state.a(), state.get_register_8(reg), false);
+    state.update_flags(flags);
     ExecResult::Done(cycles)
 }
