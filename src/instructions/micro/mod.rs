@@ -26,7 +26,7 @@
 //! `Done` afterward.
 
 use crate::instructions::ExecResult;
-use crate::state::{Register, Register16, State};
+use crate::state::{Register16, State};
 
 pub mod bit;
 pub mod io;
@@ -49,7 +49,7 @@ pub type Microinstruction = fn(&mut State) -> ExecResult;
 pub fn fetch_byte(state: &mut State) -> ExecResult {
     let pc = state.get_register_16(Register16::PC);
     state.advance_pc(1);
-    load_8(state, pc)
+    ExecResult::load(pc)
 }
 
 /// Microinstruction to load a two byte word as instruction arguments.
@@ -61,24 +61,14 @@ pub fn fetch_byte(state: &mut State) -> ExecResult {
 pub fn fetch_word(state: &mut State) -> ExecResult {
     let pc = state.get_register_16(Register16::PC);
     state.advance_pc(2);
-    load_16(state, pc)
-}
-
-/// Microinstruction component to load a byte of memory to the `Z` register.
-pub fn load_8(state: &mut State, address: u16) -> ExecResult {
-    state.load_byte_into(address, Register::Z)
-}
-
-/// Microinstruction component to load a word of memory to the `WZ` register.
-pub fn load_16(state: &mut State, address: u16) -> ExecResult {
-    state.load_word_into(address, Register16::WZ)
+    ExecResult::load16(pc)
 }
 
 /// If the condition is true, load a 16 bit value to `WZ`. Otherwise, abort running the instruction
 /// and return [[ExecResult::Done]],
 pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u8) -> ExecResult {
     if cond {
-        load_16(state, address)
+        ExecResult::load16(address)
     } else {
         state.skip_instruction();
         ExecResult::Done(cycles)

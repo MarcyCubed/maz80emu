@@ -29,12 +29,6 @@ pub fn ld_r_n(state: &mut State, register: Register, cycles: u8) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Load the value pointed by rr to r
-pub fn ld_r_pp(state: &mut State, dest: Register, src: Register16) -> ExecResult {
-    let address = state.get_register_16(src);
-    state.load_byte_into(address, dest)
-}
-
 /// Store the value of the 16-bit register in the immediate memory address
 pub fn ld_mm_rr(state: &State, reg: Register16) -> ExecResult {
     let value = state.get_register_16_bytes(reg);
@@ -42,11 +36,6 @@ pub fn ld_mm_rr(state: &State, reg: Register16) -> ExecResult {
         address: state.wz(),
         data: value,
     }
-}
-
-/// Load the data pointed by the immediate address into a 16-bit register
-pub fn ld_rr_mm(state: &mut State, reg: Register16) -> ExecResult {
-    state.load_word_into(state.wz(), reg)
 }
 
 /// Store the value of the 8-bit register in the immediate memory address
@@ -58,13 +47,14 @@ pub fn ld_mm_r(state: &State, reg: Register) -> ExecResult {
     }
 }
 
-/// Load the data pointed by the immediate address into an 8-bit register
-pub fn ld_r_mm(state: &mut State, reg: Register) -> ExecResult {
-    state.load_byte_into(state.wz(), reg)
-}
-
 /// Load the contents of a register into another
 pub fn ld_r_r(state: &mut State, dst: Register, src: Register, cycles: u8) -> ExecResult {
     state.set_register_8(dst, state.get_register_8(src));
+    ExecResult::Done(cycles)
+}
+
+/// Load the contents of a 16-bit register into another
+pub fn ld_rr_rr(state: &mut State, dst: Register16, src: Register16, cycles: u8) -> ExecResult {
+    state.set_register_16(dst, state.get_register_16(src));
     ExecResult::Done(cycles)
 }

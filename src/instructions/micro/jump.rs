@@ -73,12 +73,12 @@ pub fn ret(state: &mut State, cycles: u8) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Pops the stack into a 16-bit register
-pub fn pop(state: &mut State, reg: Register16) -> ExecResult {
+/// Pops the stack into the `WZ` 16-bit register
+pub fn pop(state: &mut State) -> ExecResult {
     let address = state.sp();
     // Pop
     *state.sp_mut() = state.sp().wrapping_add(2).to_le_bytes();
-    state.load_word_into(address, reg)
+    ExecResult::load16(address)
 }
 
 /// Push a 16-bit register into the stack into

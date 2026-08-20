@@ -70,6 +70,23 @@ pub enum ExecResult {
     Halt,
 }
 
+impl ExecResult {
+    /// Create a request to load a byte from the memory
+    pub fn load(address: u16) -> Self {
+        Self::Load { address }
+    }
+
+    /// Create a request to load a word from the memory
+    pub fn load16(address: u16) -> Self {
+        Self::Load16 { address }
+    }
+
+    /// Create a request for input from an I/O port
+    pub fn input(port: u16) -> Self {
+        Self::In { port }
+    }
+}
+
 /// The processor's instruction set.
 ///
 /// This is a table of instructions that map opcode bytes to instructions

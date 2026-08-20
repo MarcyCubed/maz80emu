@@ -1,8 +1,6 @@
 //! Zilog Z80 CPU
 
-use crate::instructions::micro::{
-    bit, io, jump, ld, load_8, load_16, load_16_or_break, math, store_16, transfer,
-};
+use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP, UNIMPLEMENTED};
 use crate::state::{Flags, Register, Register16};
 
@@ -103,8 +101,8 @@ macro_rules! ld_r_pp {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[
-                |state| ld::ld_r_pp(state, $reg, $pointer),
-                |_| ExecResult::Done(7),
+                |state| ExecResult::load(state.get_register_16($pointer)),
+                |state| ld::ld_r_r(state, $reg, Register::Z, 7),
             ],
             printer: |_| println!("ld {}, ({})", $reg, $pointer),
         }
@@ -194,7 +192,9 @@ macro_rules! pop_rr {
     ( $reg:expr ) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
-            micros: &[|state| jump::pop(state, $reg), |_| ExecResult::Done(10)],
+            micros: &[jump::pop, |state| {
+                ld::ld_rr_rr(state, $reg, Register16::WZ, 10)
+            }],
             printer: |_| println!("pop {}", $reg),
         }
     };
@@ -346,8 +346,8 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[
-            |state| ld::ld_rr_mm(state, Register16::HL),
-            |_| ExecResult::Done(16),
+            |state| ExecResult::load16(state.wz()),
+            |state| ld::ld_rr_rr(state, Register16::HL, Register16::WZ, 16),
         ],
         printer: |state| println!("ld hl, ({:x}h)", state.wz()),
     },
@@ -384,7 +384,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::inc_z_mem(state, state.hl()),
             |_| ExecResult::Done(11),
         ],
@@ -394,7 +394,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::dec_z_mem(state, state.hl()),
             |_| ExecResult::Done(11),
         ],
@@ -423,8 +423,8 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[
-            |state| ld::ld_r_mm(state, Register::A),
-            |_| ExecResult::Done(13),
+            |state| ExecResult::load(state.wz()),
+            |state| ld::ld_r_r(state, Register::A, Register::Z, 13),
         ],
         printer: |state| println!("ld a, ({:x}h)", state.wz()),
     },
@@ -582,7 +582,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::add_a_r(state, Register::Z, 7),
         ],
         printer: |_| println!("add a, (hl)"),
@@ -605,7 +605,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::adc_a_r(state, Register::Z, 7),
         ],
         printer: |_| println!("adc a, (hl)"),
@@ -628,7 +628,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::sub_r(state, Register::Z, 7),
         ],
         printer: |_| println!("sub (hl)"),
@@ -651,7 +651,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::sbc_r(state, Register::Z, 7),
         ],
         printer: |_| println!("sbc (hl)"),
@@ -674,7 +674,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::and_r(state, Register::Z, 7),
         ],
         printer: |_| println!("and (hl)"),
@@ -697,7 +697,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::xor_r(state, Register::Z, 7),
         ],
         printer: |_| println!("xor (hl)"),
@@ -720,7 +720,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::or_r(state, Register::Z, 7),
         ],
         printer: |_| println!("or (hl)"),
@@ -743,7 +743,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_8(state, state.hl()),
+            |state| ExecResult::load(state.hl()),
             |state| math::cp_r(state, Register::Z, 7),
         ],
         printer: |_| println!("cp (hl)"),
@@ -805,7 +805,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16(state, state.sp()),
+            |state| ExecResult::load16(state.sp()),
             |state| jump::ret(state, 11),
         ],
         printer: |_| println!("ret"),
@@ -906,7 +906,10 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0xdb: in a, (n)
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| io::in_n_a(state), |_| ExecResult::Done(11)],
+        micros: &[
+            |state| ExecResult::input((state.a() as u16) << 8 | state.z() as u16),
+            |state| ld::ld_r_r(state, Register::A, Register::Z, 11),
+        ],
         printer: |state| println!("in a, ({:x}h)", state.z()),
     },
     // Instruction 0xdc: call c, nn
@@ -949,12 +952,9 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16(state, state.sp()),
+            |state| ExecResult::load16(state.sp()),
             |state| store_16(state.sp(), state.hl()),
-            |state| {
-                *state.hl_mut() = state.wz_bytes();
-                ExecResult::Done(19)
-            },
+            |state| ld::ld_rr_rr(state, Register16::HL, Register16::WZ, 19),
         ],
         printer: |_| println!("ex (sp), hl"),
     },
