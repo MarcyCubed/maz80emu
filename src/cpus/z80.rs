@@ -223,6 +223,17 @@ macro_rules! rst {
     };
 }
 
+/// One byte instructions with just a single microinstruction
+macro_rules! simple_instruction {
+    ( $name:literal, $body:expr ) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: &[$body],
+            printer: |_| println!($name),
+        }
+    };
+}
+
 pub static Z80: [Instruction; 256] = [
     // Instruction 0x00: nop
     NOP,
@@ -239,17 +250,9 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x06: ld b, n
     ld_r_n!(Register::B),
     // Instruction 0x07: rlca
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| bit::rlca(state, 4)],
-        printer: |_| println!("rlca"),
-    },
+    simple_instruction!("rlca", |state| bit::rlca(state, 4)),
     // Instruction 0x08: ex af, af'
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| transfer::ex_af_af(state, 4)],
-        printer: |_| println!("ex af, af'"),
-    },
+    simple_instruction!("ex af, af'", |state| transfer::ex_af_af(state, 4)),
     // Instruction 0x09: add hl, bc
     add_hl_rr!(Register16::BC),
     // Instruction 0x0a: ld a, (bc)
@@ -263,11 +266,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x0e: ld c, n
     ld_r_n!(Register::C),
     // Instruction 0x0f: rrca
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| bit::rrca(state, 4)],
-        printer: |_| println!("rrca"),
-    },
+    simple_instruction!("rrca", |state| bit::rrca(state, 4)),
     // Instruction 0x10: djnz d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -287,11 +286,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x16: ld d, n
     ld_r_n!(Register::D),
     // Instruction 0x17: rla
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| bit::rla(state, 4)],
-        printer: |_| println!("rla"),
-    },
+    simple_instruction!("rla", |state| bit::rla(state, 4)),
     // Instruction 0x18: jr d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -311,11 +306,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x1e: ld e, n
     ld_r_n!(Register::E),
     // Instruction 0x1f: rra
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| bit::rra(state, 4)],
-        printer: |_| println!("rra"),
-    },
+    simple_instruction!("rra", |state| bit::rra(state, 4)),
     // Instruction 0x20: jr nz, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -342,11 +333,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x26: ld h, n
     ld_r_n!(Register::H),
     // Instruction 0x27: daa
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| math::daa(state, 4)],
-        printer: |_| println!("daa"),
-    },
+    simple_instruction!("daa", |state| math::daa(state, 4)),
     // Instruction 0x28: jr z, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -373,11 +360,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x2e: ld l, n
     ld_r_n!(Register::L),
     // Instruction 0x2f: cpl
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| math::cpl(state, 4)],
-        printer: |_| println!("cpl"),
-    },
+    simple_instruction!("cpl", |state| math::cpl(state, 4)),
     // Instruction 0x30: jr nc, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -427,11 +410,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("ld (hl), {:x}h", state.z()),
     },
     // Instruction 0x37: scf
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| math::scf(state, 4)],
-        printer: |_| println!("scf"),
-    },
+    simple_instruction!("scf", |state| math::scf(state, 4)),
     // Instruction 0x38: jr c, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -458,11 +437,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x3e: ld a, n
     ld_r_n!(Register::A),
     // Instruction 0x3f: ccf
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| math::ccf(state, 4)],
-        printer: |_| println!("ccf"),
-    },
+    simple_instruction!("ccf", |state| math::ccf(state, 4)),
     // Instruction 0x40: ld b, b
     ld_r_r!(Register::B, Register::B),
     // Instruction 0x41: ld b, c
@@ -921,11 +896,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |_| println!("ret c"),
     },
     // Instruction 0xd9: exx
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| transfer::exx(state, 4)],
-        printer: |_| println!("exx"),
-    },
+    simple_instruction!("exx", |state| transfer::exx(state, 4)),
     // Instruction 0xda: jp c, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -1028,16 +999,12 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jp pe, {:x}h", state.wz()),
     },
     // Instruction 0xeb: ex de, hl
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| {
-            let de = state.de_bytes();
-            *state.de_mut() = state.hl_bytes();
-            *state.hl_mut() = de;
-            ExecResult::Done(4)
-        }],
-        printer: |_| println!("ex de, hl"),
-    },
+    simple_instruction!("ex de, hl", |state| {
+        let de = state.de_bytes();
+        *state.de_mut() = state.hl_bytes();
+        *state.hl_mut() = de;
+        ExecResult::Done(4)
+    }),
     // Instruction 0xec: call pe, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -1075,15 +1042,11 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jp p, {:x}h", state.wz()),
     },
     // Instruction 0xf3: di
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| {
-            state.iff1 = false;
-            state.iff2 = false;
-            ExecResult::Done(4)
-        }],
-        printer: |_| println!("di"),
-    },
+    simple_instruction!("di", |state| {
+        state.iff1 = false;
+        state.iff2 = false;
+        ExecResult::Done(4)
+    }),
     // Instruction 0xf4: call p, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -1113,14 +1076,10 @@ pub static Z80: [Instruction; 256] = [
         printer: |_| println!("ret m"),
     },
     // Instruction 0xf9: ld sp, hl
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| {
-            *state.sp_mut() = state.hl_bytes();
-            ExecResult::Done(6)
-        }],
-        printer: |_| println!("ld sp, hl"),
-    },
+    simple_instruction!("ld sp, hl", |state| {
+        *state.sp_mut() = state.hl_bytes();
+        ExecResult::Done(6)
+    }),
     // Instruction 0xfa: jp m, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -1128,15 +1087,11 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jp m, {:x}h", state.wz()),
     },
     // Instruction 0xfb: ei
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[|state| {
-            state.iff1 = true;
-            state.iff2 = true;
-            ExecResult::Done(4)
-        }],
-        printer: |_| println!("ei"),
-    },
+    simple_instruction!("ei", |state| {
+        state.iff1 = true;
+        state.iff2 = true;
+        ExecResult::Done(4)
+    }),
     // Instruction 0xfc: call m, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
