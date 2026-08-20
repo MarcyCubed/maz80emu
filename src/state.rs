@@ -10,13 +10,15 @@
 
 use crate::instructions::ExecResult;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not, Sub, SubAssign};
+use strum::{Display, EnumCount};
 
 /// The list of registers in a Z80 CPU.
 ///
 /// The order may seem a bit strange, but that's because the Z80 is a little endian CPU. This means
 /// when we store in memory the value of 16 bit registers, the least significant byte goes first.
 /// If we keep our registers pairs also in little endian order we may avoid some format translation.
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, Display)]
+#[strum(serialize_all = "lowercase")]
 pub enum Register {
     /// The flags
     Flags,
@@ -62,7 +64,8 @@ pub enum Register {
 }
 
 /// The list of 16 bit registers.
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default, Display, EnumCount)]
+#[strum(serialize_all = "lowercase")]
 pub enum Register16 {
     /// Accumulator and flags
     #[default]
@@ -89,9 +92,6 @@ pub enum Register16 {
     WZ,
 }
 
-/// The last register
-const LAST_REGISTER: Register16 = Register16::WZ;
-
 /// The last register with an alternate
 const LAST_ALTERNATE: Register16 = Register16::HL;
 
@@ -99,7 +99,7 @@ const LAST_ALTERNATE: Register16 = Register16::HL;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct State {
     /// The set of registers
-    pub registers: [[u8; 2]; LAST_REGISTER as usize + 1],
+    pub registers: [[u8; 2]; Register16::COUNT],
     /// Alternate register set for AF, BC, DE and HL
     pub alternate: [[u8; 2]; LAST_ALTERNATE as usize + 1],
     /// Interrupt flip-flop
