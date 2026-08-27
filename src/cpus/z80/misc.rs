@@ -4,7 +4,7 @@
 
 use crate::instructions::ExecResult::Done;
 use crate::instructions::micro::{io, jump, ld, math, transfer};
-use crate::instructions::{ExecResult, ExtraBytes, Instruction, InstructionSet, micro};
+use crate::instructions::{ExecResult, ExtraBytes, Instruction, InstructionSet};
 use crate::state::Flags;
 use crate::state::{InterruptMode, Register, Register16};
 use crate::{one_byte_instruction, simple_instruction};
@@ -191,7 +191,7 @@ macro_rules! hl_out {
         one_byte_instruction!(
             $name,
             &[
-                micro::fetch_byte,
+                |state| ExecResult::load(state.hl()),
                 |state| {
                     *state.b_mut() = state.b().wrapping_sub(1);
                     ExecResult::Store {
