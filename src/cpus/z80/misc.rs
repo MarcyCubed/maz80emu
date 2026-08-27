@@ -130,7 +130,7 @@ macro_rules! load_change_store {
         one_byte_instruction!(
             $name,
             &[
-                |state| ExecResult::load16(state.hl()),
+                |state| ExecResult::load(state.hl()),
                 |state| {
                     $operation(state);
                     ExecResult::Store {
