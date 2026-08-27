@@ -1,7 +1,10 @@
 //! Zilog Z80 CPU
 
+mod misc;
+
 use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP, UNIMPLEMENTED};
+use crate::simple_instruction;
 use crate::state::{Flags, Register, Register16};
 
 /// Create a ld rr, nn instruction
@@ -219,17 +222,6 @@ macro_rules! rst {
                 |state| jump::jp(state, $addr, 11),
             ],
             printer: |_| println!("rst {:x}h", $addr),
-        }
-    };
-}
-
-/// One byte instructions with just a single microinstruction
-macro_rules! simple_instruction {
-    ( $name:literal, $body:expr ) => {
-        Instruction::Instruction {
-            extra_bytes: ExtraBytes::None,
-            micros: &[$body],
-            printer: |_| println!($name),
         }
     };
 }
@@ -1015,7 +1007,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("call pe, {:x}h", state.wz()),
     },
     // Misc. instructions
-    UNIMPLEMENTED,
+    Instruction::Prefix(&misc::MISC_INSTRUCTIONS),
     // Instruction 0xee: xor n
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,

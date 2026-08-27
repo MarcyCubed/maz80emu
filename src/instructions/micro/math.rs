@@ -12,6 +12,15 @@ const HALF_CARRY_BIT: u16 = 1 << 4;
 /// The bit out of u8 range
 const CARRY_BIT: u16 = 1 << 8;
 
+/// The bit representing the sign
+const SIGN_BIT_16: u32 = 1 << 15;
+
+/// The bit that can receive a half carry
+const HALF_CARRY_BIT_16: u32 = 1 << 12;
+
+/// The bit out of u16 range
+const CARRY_BIT_16: u32 = 1 << 16;
+
 /// Increment a 16-bit register
 pub fn inc_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult {
     state.set_register_16(register, state.get_register_16(register).wrapping_add(1));
@@ -57,7 +66,8 @@ fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
 
 /// Subtract one value and the carry from another, getting the difference and the flags
 fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
-    arithmetic_flags(a, b, borrow_in, u16::wrapping_sub)
+    let (result, flags) = arithmetic_flags(a, b, borrow_in, u16::wrapping_sub);
+    (result, flags | Flags::N)
 }
 
 /// Increment an 8-bit register
@@ -96,7 +106,7 @@ pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u8) -> ExecRes
         flags |= Flags::C;
     }
     // Set half carry flag
-    if (hl ^ other ^ result) & (1 << 12) != 0 {
+    if (hl ^ other ^ result) & HALF_CARRY_BIT_16 as u16 != 0 {
         flags |= Flags::H;
     }
     state.update_flags(flags);
@@ -263,4 +273,94 @@ pub fn cp_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
     let (_, flags) = sub_flags(state.a(), state.get_register_8(reg), false);
     state.update_flags(flags);
     ExecResult::Done(cycles)
+}
+
+/// Perform an arithmetic operation on 2 16-bit values, getting the assigned flags
+///
+/// Return the sum, the flags and the carry-out. The flags S, Z, V, C and H are updated.
+fn word_arithmetic_flags(a: u16, b: u16, carry_in: bool, op: fn(u32, u32) -> u32) -> (u16, Flags) {
+    let a = a as u32;
+    let b = b as u32;
+    // Do the math
+    let c = op(op(a, b), carry_in as u32);
+    // Updates the S and Z flags
+    let mut flags = if c & SIGN_BIT_16 != 0 {
+        Flags::S
+    } else if c == 0 {
+        Flags::Z
+    } else {
+        Flags::new()
+    };
+    // Half carry
+    if (a ^ b) & HALF_CARRY_BIT_16 != c & HALF_CARRY_BIT_16 {
+        flags |= Flags::H;
+    }
+    // Overflow == if sign bit was overwritten
+    if a & SIGN_BIT_16 == b & SIGN_BIT_16 && a & SIGN_BIT_16 != c & SIGN_BIT_16 {
+        // Overflow
+        flags |= Flags::V;
+    }
+    // Carry
+    if c & CARRY_BIT_16 != 0 {
+        flags |= Flags::C;
+    }
+    (c as u16, flags)
+}
+
+/// 16-bit subtraction with carry
+pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
+    let (hl, flags) = word_arithmetic_flags(
+        state.hl(),
+        state.get_register_16(reg),
+        state.get_flags().is_set(Flags::C),
+        u32::wrapping_sub,
+    );
+    *state.hl_mut() = hl.to_le_bytes();
+    state.update_flags(flags);
+    ExecResult::Done(cycles)
+}
+
+/// 16-bit addition with carry
+pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
+    let (hl, flags) = word_arithmetic_flags(
+        state.hl(),
+        state.get_register_16(reg),
+        state.get_flags().is_set(Flags::C),
+        u32::wrapping_add,
+    );
+    *state.hl_mut() = hl.to_le_bytes();
+    state.update_flags(flags);
+    ExecResult::Done(cycles)
+}
+
+/// Negation instruction
+///
+/// `A <- 0 - A`
+pub fn neg(state: &mut State, cycles: u8) -> ExecResult {
+    let (a, flags) = sub_flags(0, state.a(), false);
+    *state.a_mut() = a;
+    state.update_flags(flags);
+    ExecResult::Done(cycles)
+}
+
+/// Perform a nybble rotate right between `Z` and the least significant nybble of `A`
+pub fn rrd(state: &mut State) {
+    let z = state.z();
+    let a = state.a();
+    *state.z_mut() = (z >> 4) | (a << 4);
+    let a = (a & 0xf0) | (z & 0x0f);
+    *state.a_mut() = a;
+    let flags = (state.get_flags() & Flags::C) | Flags::from_value(a) | Flags::parity(a);
+    state.update_flags(flags);
+}
+
+/// Perform a nybble rotate left between `Z` and the least significant nybble of `A`
+pub fn rld(state: &mut State) {
+    let z = state.z();
+    let a = state.a();
+    *state.z_mut() = z << 4 | (a & 0x0f);
+    let a = a & 0xf0 | (z >> 4);
+    *state.a_mut() = a;
+    let flags = (state.get_flags() & Flags::C) | Flags::from_value(a) | Flags::parity(a);
+    state.update_flags(flags);
 }

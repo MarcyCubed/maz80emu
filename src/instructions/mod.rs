@@ -68,6 +68,10 @@ pub enum ExecResult {
     ///
     /// The processor stopped running until it receives an interruption
     Halt,
+    /// Executed a RETI instruction
+    ///
+    /// Like [[Done]], the parameter is the number of T cycles the instruction takes.
+    Reti(u8),
 }
 
 impl ExecResult {
@@ -132,6 +136,32 @@ pub const HALT: Instruction = Instruction::Instruction {
     printer: |_| println!("halt"),
 };
 
+/// One byte instruction with just a single microinstruction
+#[macro_export]
+macro_rules! simple_instruction {
+    ( $name:literal, $body:expr ) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: &[$body],
+            printer: |_| println!($name),
+        }
+    };
+}
+
+/// One byte instruction with any number of microinstructions
+///
+/// Usage:
+/// `one_byte_instruction!("intruction_name", &[microinstructions...])`
+#[macro_export]
+macro_rules! one_byte_instruction {
+    ( $name:literal, $micros:expr ) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: $micros,
+            printer: |_| println!($name),
+        }
+    };
+}
 /// An unimplemented instruction
 ///
 /// This isn't a real instruction and will cause the program to panic

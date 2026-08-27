@@ -107,6 +107,8 @@ pub struct State {
     pub iff2: bool,
     /// Which microinstruction is being executed
     pub mpc: usize,
+    /// Interruption mode of the processor
+    pub interrupt_mode: InterruptMode,
 }
 
 impl State {
@@ -609,4 +611,21 @@ mod tests {
             assert!(reg <= LAST_ALTERNATE);
         }
     }
+}
+
+/// How the processor handles interruptions
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Default)]
+pub enum InterruptMode {
+    /// The data received from the interrupting device is executed as an instruction.
+    ///
+    /// This is the original mode from the Intel 8080 and is the default.
+    #[default]
+    Instruction,
+    /// This mode handles interruptions by jumping to the address `0038h`
+    Rst0038,
+    /// This mode handles interrupts using the interrupt vector in the `I` register.
+    ///
+    /// When in this mode the processor performs a jump to an address formed by the value of the `I`
+    /// vector as the most significant and the data sent by the device as the least significant byte.
+    Vectored,
 }
