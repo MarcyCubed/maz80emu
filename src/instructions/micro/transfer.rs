@@ -3,7 +3,7 @@ use crate::instructions::micro::math;
 use crate::state::{Flags, Register, Register16, State};
 
 /// Switch the data of AF and AF'
-pub fn ex_af_af(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
     let af = state.af_bytes();
     *state.af_mut() = state.alternate[Register16::AF as usize];
     state.alternate[Register16::AF as usize] = af;
@@ -11,7 +11,7 @@ pub fn ex_af_af(state: &mut State, cycles: u8) -> ExecResult {
 }
 
 /// Switch between register sets
-pub fn exx(state: &mut State, cycles: u8) -> ExecResult {
+pub fn exx(state: &mut State, cycles: u32) -> ExecResult {
     let dest = &mut state.registers[Register16::BC as usize..=Register16::HL as usize];
     dest.copy_from_slice(&state.alternate[Register16::BC as usize..=Register16::HL as usize]);
     ExecResult::Done(cycles)
@@ -34,7 +34,7 @@ fn ldx_registers(state: &mut State, offset: u16) {
 /// Updates the registers for a `LDI` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldi_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ldi_registers(state: &mut State, cycles: u32) -> ExecResult {
     ldx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -47,8 +47,8 @@ fn loop_if(
     state: &mut State,
     condition: bool,
     length: u16,
-    cycles_loop: u8,
-    cycles_no_loop: u8,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
 ) -> ExecResult {
     if condition {
         *state.pc_mut() = state.pc().wrapping_sub(length).to_le_bytes();
@@ -62,7 +62,7 @@ fn loop_if(
 /// Updates the registers for a `LDIR` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn ldir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     ldx_registers(state, 1);
     loop_if(state, state.bc() != 0, 2, cycles_loop, cycles_no_loop)
 }
@@ -70,7 +70,7 @@ pub fn ldir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) ->
 /// Updates the registers for a `LDD` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldd_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
     ldx_registers(state, 0xffff); // offset == -1
     ExecResult::Done(cycles)
 }
@@ -78,7 +78,7 @@ pub fn ldd_registers(state: &mut State, cycles: u8) -> ExecResult {
 /// Updates the registers for a `LDDR` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn lddr_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn lddr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     ldx_registers(state, 0xffff); // offset == -1
     loop_if(state, state.bc() != 0, 2, cycles_loop, cycles_no_loop)
 }
@@ -99,7 +99,7 @@ fn cpx_registers(state: &mut State, offset: u16) {
 /// Updates the registers for a `CPI` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpi_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn cpi_registers(state: &mut State, cycles: u32) -> ExecResult {
     cpx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -107,7 +107,7 @@ pub fn cpi_registers(state: &mut State, cycles: u8) -> ExecResult {
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn cpir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     cpx_registers(state, 1);
     loop_if(
         state,
@@ -121,7 +121,7 @@ pub fn cpir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) ->
 /// Updates the registers for a `CPD` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpd_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn cpd_registers(state: &mut State, cycles: u32) -> ExecResult {
     cpx_registers(state, 0xffff); // Offset == -1
     ExecResult::Done(cycles)
 }
@@ -129,7 +129,7 @@ pub fn cpd_registers(state: &mut State, cycles: u8) -> ExecResult {
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpdr_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn cpdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     cpx_registers(state, 0xffff); // Offset == -1
     loop_if(
         state,
@@ -151,7 +151,7 @@ fn inx_registers(state: &mut State, offset: u16) {
 /// Updates the registers for an `INI` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn ini_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ini_registers(state: &mut State, cycles: u32) -> ExecResult {
     inx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -159,7 +159,7 @@ pub fn ini_registers(state: &mut State, cycles: u8) -> ExecResult {
 /// Updates the registers for an `IND` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn ind_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ind_registers(state: &mut State, cycles: u32) -> ExecResult {
     inx_registers(state, 0xffff); // offset is -1
     ExecResult::Done(cycles)
 }
@@ -167,7 +167,7 @@ pub fn ind_registers(state: &mut State, cycles: u8) -> ExecResult {
 /// Updates the registers for an `INIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn inir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn inir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     inx_registers(state, 1);
     loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
 }
@@ -175,7 +175,7 @@ pub fn inir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) ->
 /// Updates the registers for an `INDR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn indr_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn indr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     inx_registers(state, 0xffff);
     loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
 }
@@ -187,25 +187,25 @@ fn outx_registers(state: &mut State, offset: u16) {
 }
 
 /// Updates the registers for an `OUTI` instruction
-pub fn outi_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn outi_registers(state: &mut State, cycles: u32) -> ExecResult {
     outx_registers(state, 1);
     ExecResult::Done(cycles)
 }
 
 /// Updates the registers for an `OUTD` instruction
-pub fn outd_registers(state: &mut State, cycles: u8) -> ExecResult {
+pub fn outd_registers(state: &mut State, cycles: u32) -> ExecResult {
     outx_registers(state, 0xffff); // offset is -1
     ExecResult::Done(cycles)
 }
 
 /// Updates the registers for an `OTIR` instruction
-pub fn otir_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn otir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     outx_registers(state, 1);
     loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `OTDR` instruction
-pub fn otdr_registers(state: &mut State, cycles_loop: u8, cycles_no_loop: u8) -> ExecResult {
+pub fn otdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
     outx_registers(state, 0xffff);
     loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
 }

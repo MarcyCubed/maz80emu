@@ -27,7 +27,15 @@ pub enum ExecResult {
     /// Finished executing one instruction.
     ///
     /// The number is the amount of clock cycles it took to run the instruction.
-    Done(u8),
+    Done(u32),
+    /// Fetch 1 byte to be executed
+    ///
+    /// This almost the same as [ExecResult::Load]. The difference is that Fetch takes more T cycles
+    /// to be executed than Load.
+    Fetch {
+        /// The memory address to be read.
+        address: u16,
+    },
     /// The emulator requests 1 byte of data from memory.
     Load {
         /// The memory address to be read.
@@ -71,10 +79,15 @@ pub enum ExecResult {
     /// Executed a RETI instruction
     ///
     /// Like [[Done]], the parameter is the number of T cycles the instruction takes.
-    Reti(u8),
+    Reti(u32),
 }
 
 impl ExecResult {
+    /// Create a request to fetch an instruction from memory
+    pub fn fetch(address: u16) -> Self {
+        Self::Fetch { address }
+    }
+
     /// Create a request to load a byte from the memory
     pub fn load(address: u16) -> Self {
         Self::Load { address }
@@ -88,6 +101,17 @@ impl ExecResult {
     /// Create a request for input from an I/O port
     pub fn input(port: u16) -> Self {
         Self::In { port }
+    }
+
+    /// The number of T cycles the operation takes
+    pub fn t_cycles(self) -> u32 {
+        match self {
+            ExecResult::Done(n) | ExecResult::Reti(n) => n,
+            ExecResult::Fetch { .. } | ExecResult::In { .. } | ExecResult::Out { .. } => 4,
+            ExecResult::Load { .. } | ExecResult::Store { .. } => 3,
+            ExecResult::Load16 { .. } | ExecResult::Store16 { .. } => 6,
+            ExecResult::Halt => 0,
+        }
     }
 }
 
@@ -125,7 +149,7 @@ pub enum Instruction {
 /// NOP instruction
 pub const NOP: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
-    micros: &[|_| ExecResult::Done(4)],
+    micros: &[|_| ExecResult::Done(0)],
     printer: |_| println!("nop"),
 };
 
@@ -182,7 +206,7 @@ mod tests {
         loop {
             for instr in decoder.decode(state) {
                 match instr(state) {
-                    ExecResult::Load { address } => {
+                    ExecResult::Load { address } | ExecResult::Fetch { address } => {
                         state.load_data_8(ram[address as usize]);
                     }
                     ExecResult::Load16 { address } => {

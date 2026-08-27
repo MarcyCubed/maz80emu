@@ -11,7 +11,7 @@ pub fn out_n_a(state: &mut State) -> ExecResult {
 /// Perform the processing part of an `in r, (c)` instruction
 ///
 /// The data received from the device should be in the `Z` register
-pub fn in_r_bc(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn in_r_bc(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let c_flag = state.get_flags() & Flags::C;
     let data = state.z();
     state.update_flags(c_flag | Flags::from_value(data) | Flags::parity(data));
@@ -20,7 +20,7 @@ pub fn in_r_bc(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 }
 
 /// Sets the interrupt mode
-pub fn im_n(state: &mut State, interrupt_mode: InterruptMode, cycles: u8) -> ExecResult {
+pub fn im_n(state: &mut State, interrupt_mode: InterruptMode, cycles: u32) -> ExecResult {
     state.interrupt_mode = interrupt_mode;
     ExecResult::Done(cycles)
 }

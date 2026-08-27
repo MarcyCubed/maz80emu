@@ -4,7 +4,7 @@ use crate::instructions::ExecResult;
 use crate::state::{Flags, State};
 
 /// Rotate the accumulator left and copy the original most significant bit to the carry flag
-pub fn rlca(state: &mut State, cycles: u8) -> ExecResult {
+pub fn rlca(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let a = a.rotate_left(1);
     // Flags S, Z and V are unchanged
@@ -19,7 +19,7 @@ pub fn rlca(state: &mut State, cycles: u8) -> ExecResult {
 }
 
 /// Rotate the accumulator right and copy the original least significant bit to the carry flag
-pub fn rrca(state: &mut State, cycles: u8) -> ExecResult {
+pub fn rrca(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let a = a.rotate_right(1);
     // Flags S, Z and V are unchanged
@@ -34,7 +34,7 @@ pub fn rrca(state: &mut State, cycles: u8) -> ExecResult {
 }
 
 /// Rotate the 9-bit value composed by the C flag and the accumulator to the left
-pub fn rla(state: &mut State, cycles: u8) -> ExecResult {
+pub fn rla(state: &mut State, cycles: u32) -> ExecResult {
     let acc = state.a();
     // The MSB of the accumulator will move to the C flag
     let new_c_flag = if acc & 0b10000000 != 0 {
@@ -56,7 +56,7 @@ pub fn rla(state: &mut State, cycles: u8) -> ExecResult {
 }
 
 /// Rotate the 9-bit value composed by the C flag and the accumulator to the right
-pub fn rra(state: &mut State, cycles: u8) -> ExecResult {
+pub fn rra(state: &mut State, cycles: u32) -> ExecResult {
     let acc = state.a();
     // The LSB of the accumulator will move to the C flag
     let new_c_flag = if acc & 1 != 0 { Flags::C } else { Flags::new() };

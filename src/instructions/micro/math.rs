@@ -22,13 +22,13 @@ const HALF_CARRY_BIT_16: u32 = 1 << 12;
 const CARRY_BIT_16: u32 = 1 << 16;
 
 /// Increment a 16-bit register
-pub fn inc_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult {
+pub fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
     state.set_register_16(register, state.get_register_16(register).wrapping_add(1));
     ExecResult::Done(cycles)
 }
 
 /// Decrement a 16-bit register
-pub fn dec_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult {
+pub fn dec_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
     state.set_register_16(register, state.get_register_16(register).wrapping_sub(1));
     ExecResult::Done(cycles)
 }
@@ -73,7 +73,7 @@ fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
 /// Increment an 8-bit register
 ///
 /// Return Done
-pub fn inc_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
+pub fn inc_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     let (inc, flags) = add_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, inc);
     // Old C flag || Computed new flags
@@ -85,7 +85,7 @@ pub fn inc_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
 /// Decrement an 8-bit register
 ///
 /// Return Done
-pub fn dec_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
+pub fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     let (dec, flags) = sub_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, dec);
     // Old C flag || Computed new flags
@@ -95,7 +95,7 @@ pub fn dec_r(state: &mut State, register: Register, cycles: u8) -> ExecResult {
 }
 
 /// Add a 16-bit value to HL
-pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u8) -> ExecResult {
+pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
     let hl = state.hl();
     let other = state.get_register_16(register);
     // Flags S, Z and V are unchanged
@@ -116,7 +116,7 @@ pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u8) -> ExecRes
 }
 
 /// Adjust a BCD value after a math operation
-pub fn daa(state: &mut State, cycles: u8) -> ExecResult {
+pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let flags_0 = state.get_flags();
     //let high_nybble = a >> 4;
@@ -154,7 +154,7 @@ pub fn daa(state: &mut State, cycles: u8) -> ExecResult {
 /// Complement of the accumulator.
 ///
 /// `!a`
-pub fn cpl(state: &mut State, cycles: u8) -> ExecResult {
+pub fn cpl(state: &mut State, cycles: u32) -> ExecResult {
     *state.a_mut() = !state.a();
     let flags = state.get_flags() | Flags::N | Flags::H;
     state.update_flags(flags);
@@ -180,14 +180,14 @@ pub fn dec_z_mem(state: &mut State, address: u16) -> ExecResult {
 }
 
 /// Set the carry flag
-pub fn scf(state: &mut State, cycles: u8) -> ExecResult {
+pub fn scf(state: &mut State, cycles: u32) -> ExecResult {
     let flags = (state.get_flags() | Flags::C) - (Flags::H | Flags::N);
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
 
 /// Complement the carry flag
-pub fn ccf(state: &mut State, cycles: u8) -> ExecResult {
+pub fn ccf(state: &mut State, cycles: u32) -> ExecResult {
     let flags_0 = state.get_flags();
     let mut flags = flags_0 - (Flags::H | Flags::N | Flags::C);
     flags |= Flags::C & !flags_0;
@@ -199,17 +199,17 @@ pub fn ccf(state: &mut State, cycles: u8) -> ExecResult {
 }
 
 /// Add the value of a register to A
-pub fn add_a_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn add_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     add_a_r_common(state, reg, false, cycles)
 }
 
 /// Add the value of a register and the existing carry to A
-pub fn adc_a_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn adc_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     add_a_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
 }
 
 /// Common part between add_a_r and adc_a_r
-fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult {
+fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u32) -> ExecResult {
     let a = state.a();
     let n = state.get_register_8(reg);
     let (a, flags) = add_flags(a, n, carry_in);
@@ -220,7 +220,7 @@ fn add_a_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) 
 }
 
 /// Common part between sub_r and sbc_r
-fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) -> ExecResult {
+fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u32) -> ExecResult {
     let a = state.a();
     let n = state.get_register_8(reg);
     let (a, flags) = sub_flags(a, n, carry_in);
@@ -231,17 +231,17 @@ fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u8) ->
 }
 
 /// Subtract the value of a register from A
-pub fn sub_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn sub_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     sub_r_common(state, reg, false, cycles)
 }
 
 /// Subtract the value of a register and the existing carry from A
-pub fn sbc_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn sbc_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     sub_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
 }
 
 /// Perform an `AND` operation between the register and the accumulator
-pub fn and_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn and_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() & state.get_register_8(reg);
     let flags = Flags::H | Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -250,7 +250,7 @@ pub fn and_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 }
 
 /// Perform a `XOR` operation between the register and the accumulator
-pub fn xor_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn xor_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() ^ state.get_register_8(reg);
     let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -259,7 +259,7 @@ pub fn xor_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 }
 
 /// Perform an `OR` operation between the register and the accumulator
-pub fn or_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn or_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() | state.get_register_8(reg);
     let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -268,7 +268,7 @@ pub fn or_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
 }
 
 /// Compare the accumulator and the register
-pub fn cp_r(state: &mut State, reg: Register, cycles: u8) -> ExecResult {
+pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     //println!(" a = {:x}h  x = {:x}h  ", state.a(), state.get_register_8(reg));
     let (_, flags) = sub_flags(state.a(), state.get_register_8(reg), false);
     state.update_flags(flags);
@@ -308,7 +308,7 @@ fn word_arithmetic_flags(a: u16, b: u16, carry_in: bool, op: fn(u32, u32) -> u32
 }
 
 /// 16-bit subtraction with carry
-pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
+pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
     let (hl, flags) = word_arithmetic_flags(
         state.hl(),
         state.get_register_16(reg),
@@ -321,7 +321,7 @@ pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
 }
 
 /// 16-bit addition with carry
-pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
+pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
     let (hl, flags) = word_arithmetic_flags(
         state.hl(),
         state.get_register_16(reg),
@@ -336,7 +336,7 @@ pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u8) -> ExecResult {
 /// Negation instruction
 ///
 /// `A <- 0 - A`
-pub fn neg(state: &mut State, cycles: u8) -> ExecResult {
+pub fn neg(state: &mut State, cycles: u32) -> ExecResult {
     let (a, flags) = sub_flags(0, state.a(), false);
     *state.a_mut() = a;
     state.update_flags(flags);

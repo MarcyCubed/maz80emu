@@ -42,23 +42,26 @@ pub type Microinstruction = fn(&mut State) -> ExecResult;
 
 /// Microinstruction to load one byte as instruction argument.
 ///
-/// The [[ExecResult::Load]] this function returns reads a single byte that is stored in the
-/// register `Z`.
+/// The result is stored in the `Z` register.
+pub fn fetch(state: &mut State) -> ExecResult {
+    let pc = state.get_register_16(Register16::PC);
+    state.advance_pc(1);
+    ExecResult::fetch(pc)
+}
+
+/// Load the parameter for a two byte instruction.
 ///
-/// This can be used by two byte instructions to load their arguments.
-pub fn fetch_byte(state: &mut State) -> ExecResult {
+/// The result is stored in the `Z` register.
+pub fn load_byte_parameter(state: &mut State) -> ExecResult {
     let pc = state.get_register_16(Register16::PC);
     state.advance_pc(1);
     ExecResult::load(pc)
 }
 
-/// Microinstruction to load a two byte word as instruction arguments.
+/// Loads the parameter for a three byte instruction
 ///
-/// The [[ExecResult::Load16]] this function returns reads two bytes from memory, that are stored
-/// in the register `WZ`.
-///
-/// This can be used by three byte instructions to load their arguments.
-pub fn fetch_word(state: &mut State) -> ExecResult {
+/// The result is stored in the `WZ` register.
+pub fn load_word_parameter(state: &mut State) -> ExecResult {
     let pc = state.get_register_16(Register16::PC);
     state.advance_pc(2);
     ExecResult::load16(pc)
@@ -66,7 +69,7 @@ pub fn fetch_word(state: &mut State) -> ExecResult {
 
 /// If the condition is true, load a 16 bit value to `WZ`. Otherwise, abort running the instruction
 /// and return [[ExecResult::Done]],
-pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u8) -> ExecResult {
+pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u32) -> ExecResult {
     if cond {
         ExecResult::load16(address)
     } else {

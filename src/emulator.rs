@@ -49,12 +49,14 @@ impl Emulator {
         loop {
             let result = self.run();
             match result {
-                ExecResult::Load { address } => match memory.get(address as usize).copied() {
-                    None => return result,
-                    Some(data) => {
-                        self.state.load_data_8(data);
+                ExecResult::Load { address } | ExecResult::Fetch { address } => {
+                    match memory.get(address as usize).copied() {
+                        None => return result,
+                        Some(data) => {
+                            self.state.load_data_8(data);
+                        }
                     }
-                },
+                }
                 ExecResult::Load16 { address } => {
                     let address = address as usize;
                     if address + 1 >= memory.len() {
@@ -91,7 +93,9 @@ impl Emulator {
         loop {
             let result = self.run();
             match result {
-                ExecResult::Load { address } => self.state.load_data_8(memory[address as usize]),
+                ExecResult::Load { address } | ExecResult::Fetch { address } => {
+                    self.state.load_data_8(memory[address as usize])
+                }
                 ExecResult::Load16 { address } => {
                     let address = address as usize;
                     self.state

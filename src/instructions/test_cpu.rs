@@ -112,7 +112,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.a_mut() = a.wrapping_add(b);
             ExecResult::Done(4)
         }],
-        printer: |state| println!("A = A + B"),
+        printer: |_| println!("A = A + B"),
     };
     table[12] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
@@ -122,7 +122,7 @@ pub static TEST_CPU: InstructionSet = {
             *state.hl_mut() = bc.wrapping_add(de).to_le_bytes();
             ExecResult::Done(4)
         }],
-        printer: |state| println!("HL = BC + DE"),
+        printer: |_| println!("HL = BC + DE"),
     };
     table[13] = Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,

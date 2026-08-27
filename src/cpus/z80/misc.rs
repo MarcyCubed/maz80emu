@@ -2,19 +2,11 @@
 //!
 //! These are instructions with the `EB` prefix.
 
-use crate::instructions::ExecResult::Done;
 use crate::instructions::micro::{io, jump, ld, math, transfer};
-use crate::instructions::{ExecResult, ExtraBytes, Instruction, InstructionSet};
+use crate::instructions::{ExecResult, ExtraBytes, Instruction, InstructionSet, NOP};
 use crate::state::Flags;
 use crate::state::{InterruptMode, Register, Register16};
 use crate::{one_byte_instruction, simple_instruction};
-
-/// NOP instruction. Since it's a 2-bit instruction it takes longer that the standard NOP
-const MISC_NOP: Instruction = Instruction::Instruction {
-    extra_bytes: ExtraBytes::None,
-    micros: &[|_| Done(8)],
-    printer: |_| println!("nop     ; ED prefix"),
-};
 
 /// Generate instruction `in r, (c)`
 macro_rules! in_r_c {
@@ -194,8 +186,8 @@ macro_rules! hl_out {
                 |state| ExecResult::load(state.hl()),
                 |state| {
                     *state.b_mut() = state.b().wrapping_sub(1);
-                    ExecResult::Store {
-                        address: state.bc(),
+                    ExecResult::Out {
+                        port: state.bc(),
                         data: state.z(),
                     }
                 },
@@ -208,7 +200,7 @@ macro_rules! hl_out {
 /// Table of miscellaneous instructions
 pub static MISC_INSTRUCTIONS: InstructionSet = {
     // Initialize all instructions with NOP.
-    let mut table = [MISC_NOP; _];
+    let mut table = [NOP; _];
     // in r, (c) instructions
     table[0x40] = in_r_c!(Register::B);
     table[0x48] = in_r_c!(Register::C);
@@ -248,19 +240,19 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
     table[0x6b] = ld_rr_mm!(Register16::HL); // Undocumented instruction
     table[0x7b] = ld_rr_mm!(Register16::SP);
     // neg
-    table[0x44] = simple_instruction!("neg", |state| math::neg(state, 8));
+    table[0x44] = simple_instruction!("neg", |state| math::neg(state, 0));
     // im n
     table[0x46] = simple_instruction!("im 0", |state| {
         state.interrupt_mode = InterruptMode::Instruction;
-        ExecResult::Done(8)
+        ExecResult::Done(0)
     });
     table[0x56] = simple_instruction!("im 0", |state| {
         state.interrupt_mode = InterruptMode::Rst0038;
-        ExecResult::Done(8)
+        ExecResult::Done(0)
     });
     table[0x53] = simple_instruction!("im 0", |state| {
         state.interrupt_mode = InterruptMode::Vectored;
-        ExecResult::Done(8)
+        ExecResult::Done(0)
     });
     // Extra ld r, r
     table[0x47] = ld_r_a!(Register::I);
@@ -268,8 +260,8 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
     table[0x57] = ld_a_r!(Register::I);
     table[0x5f] = ld_a_r!(Register::R);
     // nybble rotation
-    table[0x67] = load_change_store!("rrd", |state| math::rrd(state), 18);
-    table[0x6f] = load_change_store!("rld", |state| math::rld(state), 18);
+    table[0x67] = load_change_store!("rrd", |state| math::rrd(state), 4);
+    table[0x6f] = load_change_store!("rld", |state| math::rld(state), 4);
     // Interrupt returns
     table[0x45] = one_byte_instruction!(
         "retn",
@@ -277,7 +269,7 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
             |state| ExecResult::load16(state.sp()),
             |state| {
                 state.iff1 = state.iff2;
-                jump::ret(state, 14)
+                jump::ret(state, 0)
             },
         ]
     );
@@ -287,27 +279,27 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
             |state| ExecResult::load16(state.sp()),
             |state| {
                 jump::ret(state, 0);
-                ExecResult::Reti(14)
+                ExecResult::Reti(0)
             },
         ]
     );
     // Block transfer
-    table[0xa0] = ldx!("ldi", |state| transfer::ldi_registers(state, 16));
-    table[0xb0] = ldx!("ldir", |state| transfer::ldir_registers(state, 21, 16));
-    table[0xa8] = ldx!("ldd", |state| transfer::ldd_registers(state, 16));
-    table[0xb8] = ldx!("lddr", |state| transfer::lddr_registers(state, 21, 16));
-    table[0xa1] = hl_load!("cpi", |state| transfer::cpi_registers(state, 16));
-    table[0xb1] = hl_load!("cpir", |state| transfer::cpir_registers(state, 21, 16));
-    table[0xa9] = hl_load!("cpd", |state| transfer::cpd_registers(state, 16));
-    table[0xb9] = hl_load!("cpdr", |state| transfer::cpdr_registers(state, 21, 16));
-    table[0xa2] = hl_in!("ini", |state| transfer::ini_registers(state, 16));
-    table[0xb2] = hl_in!("inir", |state| transfer::inir_registers(state, 21, 16));
-    table[0xaa] = hl_in!("ind", |state| transfer::ini_registers(state, 16));
-    table[0xba] = hl_in!("indr", |state| transfer::inir_registers(state, 21, 16));
-    table[0xa3] = hl_out!("outi", |state| transfer::outi_registers(state, 16));
-    table[0xb3] = hl_out!("otir", |state| transfer::otir_registers(state, 21, 16));
-    table[0xab] = hl_out!("outd", |state| transfer::outd_registers(state, 16));
-    table[0xbb] = hl_out!("otdr", |state| transfer::otdr_registers(state, 21, 16));
+    table[0xa0] = ldx!("ldi", |state| transfer::ldi_registers(state, 2));
+    table[0xb0] = ldx!("ldir", |state| transfer::ldir_registers(state, 7, 2));
+    table[0xa8] = ldx!("ldd", |state| transfer::ldd_registers(state, 2));
+    table[0xb8] = ldx!("lddr", |state| transfer::lddr_registers(state, 7, 2));
+    table[0xa1] = hl_load!("cpi", |state| transfer::cpi_registers(state, 5));
+    table[0xb1] = hl_load!("cpir", |state| transfer::cpir_registers(state, 10, 5));
+    table[0xa9] = hl_load!("cpd", |state| transfer::cpd_registers(state, 5));
+    table[0xb9] = hl_load!("cpdr", |state| transfer::cpdr_registers(state, 10, 5));
+    table[0xa2] = hl_in!("ini", |state| transfer::ini_registers(state, 1));
+    table[0xb2] = hl_in!("inir", |state| transfer::inir_registers(state, 6, 1));
+    table[0xaa] = hl_in!("ind", |state| transfer::ini_registers(state, 1));
+    table[0xba] = hl_in!("indr", |state| transfer::inir_registers(state, 6, 1));
+    table[0xa3] = hl_out!("outi", |state| transfer::outi_registers(state, 1));
+    table[0xb3] = hl_out!("otir", |state| transfer::otir_registers(state, 6, 1));
+    table[0xab] = hl_out!("outd", |state| transfer::outd_registers(state, 1));
+    table[0xbb] = hl_out!("otdr", |state| transfer::otdr_registers(state, 6, 1));
 
     table
 };

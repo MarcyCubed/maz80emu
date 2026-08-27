@@ -57,12 +57,6 @@ impl Decoder {
         self.state = INITIAL;
     }
 
-    /// Fetch the next byte to be executed
-    fn fetch_next(&mut self, _state: &mut State) -> &'static [Microinstruction] {
-        // Load another byte
-        &[micro::fetch_byte]
-    }
-
     /// Advance on decoding the next instruction.
     pub(crate) fn decode(&mut self, state: &mut State) -> &'static [Microinstruction] {
         match self.state {
@@ -75,7 +69,7 @@ impl Decoder {
                 // Next state is to check the table
                 self.state = DecoderState::Table;
                 // Fetch the opcode
-                self.fetch_next(state)
+                &[micro::fetch]
             }
             DecoderState::Table => {
                 // Get the instruction from the table
@@ -84,7 +78,7 @@ impl Decoder {
                         // It's a prefix, so we need to move to the inner table
                         // and fetch another opcode
                         self.current = table;
-                        self.fetch_next(state)
+                        &[micro::fetch]
                     }
                     Instruction::Instruction {
                         extra_bytes,
@@ -104,12 +98,12 @@ impl Decoder {
                             ExtraBytes::One => {
                                 self.last_instruction = micros;
                                 self.state = DecoderState::Decoded;
-                                &[micro::fetch_byte]
+                                &[micro::load_byte_parameter]
                             }
                             ExtraBytes::Two => {
                                 self.last_instruction = micros;
                                 self.state = DecoderState::Decoded;
-                                &[micro::fetch_word]
+                                &[micro::load_word_parameter]
                             }
                         }
                     }
