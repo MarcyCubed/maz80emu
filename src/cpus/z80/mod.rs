@@ -1,5 +1,6 @@
 //! Zilog Z80 CPU
 
+mod bit_instructions;
 mod misc;
 
 use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
@@ -809,7 +810,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jp z, {:x}h", state.wz()),
     },
     // Bit instructions
-    UNIMPLEMENTED,
+    Instruction::Prefix(&bit_instructions::BIT_INSTRUCTIONS),
     // Instruction 0xcc: call z, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
