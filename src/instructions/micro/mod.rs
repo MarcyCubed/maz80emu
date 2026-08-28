@@ -40,7 +40,7 @@ pub mod transfer;
 /// In other words, it performs a simple operation.
 pub type Microinstruction = fn(&mut State) -> ExecResult;
 
-/// Microinstruction to load one byte as instruction argument.
+/// Microinstruction to load one byte as instruction opcode.
 ///
 /// The result is stored in the `Z` register.
 pub fn fetch(state: &mut State) -> ExecResult {
