@@ -46,6 +46,9 @@ pub type Microinstruction = fn(&mut State) -> ExecResult;
 pub fn fetch(state: &mut State) -> ExecResult {
     let pc = state.get_register_16(Register16::PC);
     state.advance_pc(1);
+    // Advance the R register
+    let r = state.r();
+    *state.r_mut() = (r.wrapping_add(1) & !(1 << 7)) | r & 1 << 7;
     ExecResult::fetch(pc)
 }
 
