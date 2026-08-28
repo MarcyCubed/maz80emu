@@ -1,10 +1,11 @@
 //! Zilog Z80 CPU
 
 mod bit_instructions;
+mod indexed;
 mod misc;
 
 use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
-use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP, UNIMPLEMENTED};
+use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP};
 use crate::simple_instruction;
 use crate::state::{Flags, Register, Register16};
 
@@ -19,6 +20,37 @@ macro_rules! ld_rr_nn {
     };
 }
 
+pub(crate) use ld_rr_nn;
+
+/// Create a ld (mm), rr instruction
+macro_rules! ld_mm_rr {
+    ($reg: expr) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::Two,
+            micros: &[|state| ld::ld_mm_rr(state, $reg), |_| ExecResult::Done(0)],
+            printer: |state| println!("ld ({:x}h), {}", state.wz(), $reg),
+        }
+    };
+}
+
+pub(crate) use ld_mm_rr;
+
+/// Create a ld rr, (mm) instruction
+macro_rules! ld_rr_mm {
+    ($reg: expr) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::Two,
+            micros: &[
+                |state| ExecResult::load16(state.wz()),
+                |state| ld::ld_rr_rr(state, $reg, Register16::WZ, 0),
+            ],
+            printer: |state| println!("ld {}, ({:x}h)", $reg, state.wz()),
+        }
+    };
+}
+
+pub(crate) use ld_rr_mm;
+
 /// Create a ld r, r instruction
 macro_rules! ld_r_r {
     ( $dst:expr,  $src:expr ) => {
@@ -29,6 +61,7 @@ macro_rules! ld_r_r {
         }
     };
 }
+pub(crate) use ld_r_r;
 
 /// Create a ld (pp), r instruction
 macro_rules! ld_pp_r {
@@ -55,6 +88,8 @@ macro_rules! inc_rr {
     };
 }
 
+pub(crate) use inc_rr;
+
 /// Create an inc r instruction
 macro_rules! inc_r {
     ( $reg:expr ) => {
@@ -65,6 +100,7 @@ macro_rules! inc_r {
         }
     };
 }
+pub(crate) use inc_r;
 
 /// Create a dec r instruction
 macro_rules! dec_r {
@@ -76,6 +112,7 @@ macro_rules! dec_r {
         }
     };
 }
+pub(crate) use dec_r;
 
 /// Create a ld r, n instruction
 macro_rules! ld_r_n {
@@ -87,17 +124,20 @@ macro_rules! ld_r_n {
         }
     };
 }
+pub(crate) use ld_r_n;
 
-/// Create an add hl, rr instruction
-macro_rules! add_hl_rr {
-    ( $reg:expr ) => {
+/// Create an add rr, rr instruction
+macro_rules! add_rr_rr {
+    ( $dest:expr, $src:expr ) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
-            micros: &[|state| math::add_hl_rr(state, $reg, 7)],
-            printer: |_| println!("add hl, {}", $reg),
+            micros: &[|state| math::add_rr_rr(state, $dest, $src, 7)],
+            printer: |_| println!("add {}, {}", $dest, $src),
         }
     };
 }
+
+pub(crate) use add_rr_rr;
 
 /// Create a ld r, (pp) instruction
 macro_rules! ld_r_pp {
@@ -124,6 +164,8 @@ macro_rules! dec_rr {
     };
 }
 
+pub(crate) use dec_rr;
+
 /// Create a logic or arithmetic instruction
 macro_rules! math_r {
     ( $function:ident, $text:expr, $reg:expr ) => {
@@ -134,6 +176,7 @@ macro_rules! math_r {
         }
     };
 }
+pub(crate) use math_r;
 
 /// Create an add_a_r instruction
 macro_rules! add_r {
@@ -141,6 +184,7 @@ macro_rules! add_r {
         math_r!(add_a_r, "add a,", $reg)
     };
 }
+pub(crate) use add_r;
 
 /// Create an adc_r instruction
 macro_rules! adc_r {
@@ -148,6 +192,7 @@ macro_rules! adc_r {
         math_r!(adc_a_r, "adc a,", $reg)
     };
 }
+pub(crate) use adc_r;
 
 /// Create a sub_r instruction
 macro_rules! sub_r {
@@ -155,6 +200,7 @@ macro_rules! sub_r {
         math_r!(sub_r, "sub", $reg)
     };
 }
+pub(crate) use sub_r;
 
 /// Create a sbc_r instruction
 macro_rules! sbc_r {
@@ -162,6 +208,7 @@ macro_rules! sbc_r {
         math_r!(sbc_r, "sbc", $reg)
     };
 }
+pub(crate) use sbc_r;
 
 /// Create an and_r instruction
 macro_rules! and_r {
@@ -169,6 +216,7 @@ macro_rules! and_r {
         math_r!(and_r, "and", $reg)
     };
 }
+pub(crate) use and_r;
 
 /// Create an or_r instruction
 macro_rules! or_r {
@@ -176,6 +224,7 @@ macro_rules! or_r {
         math_r!(or_r, "or", $reg)
     };
 }
+pub(crate) use or_r;
 
 /// Create a xor_r instruction
 macro_rules! xor_r {
@@ -183,6 +232,7 @@ macro_rules! xor_r {
         math_r!(xor_r, "xor", $reg)
     };
 }
+pub(crate) use xor_r;
 
 /// Create a cp_r instruction
 macro_rules! cp_r {
@@ -190,6 +240,7 @@ macro_rules! cp_r {
         math_r!(cp_r, "cp", $reg)
     };
 }
+pub(crate) use cp_r;
 
 /// Create a pop rr instruction
 macro_rules! pop_rr {
@@ -203,6 +254,7 @@ macro_rules! pop_rr {
         }
     };
 }
+pub(crate) use pop_rr;
 
 macro_rules! push_rr {
     ( $reg:expr ) => {
@@ -213,6 +265,7 @@ macro_rules! push_rr {
         }
     };
 }
+pub(crate) use push_rr;
 
 macro_rules! rst {
     ( $addr:literal ) => {
@@ -247,7 +300,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x08: ex af, af'
     simple_instruction!("ex af, af'", |state| transfer::ex_af_af(state, 0)),
     // Instruction 0x09: add hl, bc
-    add_hl_rr!(Register16::BC),
+    add_rr_rr!(Register16::HL, Register16::BC),
     // Instruction 0x0a: ld a, (bc)
     ld_r_pp!(Register::A, Register16::BC),
     // Instruction 0x0b: dec bc
@@ -287,7 +340,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jr {}", state.z() as i8),
     },
     // Instruction 0x19: add hl, de
-    add_hl_rr!(Register16::DE),
+    add_rr_rr!(Register16::HL, Register16::DE),
     // Instruction 0x1a: ld a, (de)
     ld_r_pp!(Register::A, Register16::DE),
     // Instruction 0x1b: dec de
@@ -309,14 +362,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x21: ld hl, nn
     ld_rr_nn!(Register16::HL),
     // Instruction 0x22: ld (mm), hl
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::Two,
-        micros: &[
-            |state| ld::ld_mm_rr(state, Register16::HL),
-            |_| ExecResult::Done(0),
-        ],
-        printer: |state| println!("ld ({:x}h), hl", state.wz()),
-    },
+    ld_mm_rr!(Register16::HL),
     // Instruction 0x23: inc hl
     inc_rr!(Register16::HL),
     // Instruction 0x24: inc h
@@ -334,16 +380,9 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jr z, {}", state.z() as i8),
     },
     // Instruction 0x29: add hl, hl
-    add_hl_rr!(Register16::HL),
+    add_rr_rr!(Register16::HL, Register16::HL),
     // Instruction 0x2a: ld hl, (nn)
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::Two,
-        micros: &[
-            |state| ExecResult::load16(state.wz()),
-            |state| ld::ld_rr_rr(state, Register16::HL, Register16::WZ, 0),
-        ],
-        printer: |state| println!("ld hl, ({:x}h)", state.wz()),
-    },
+    ld_rr_mm!(Register16::HL),
     // Instruction 0x2b: dec hl
     dec_rr!(Register16::HL),
     // Instruction 0x2c: inc l
@@ -411,7 +450,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jr c, {}", state.z() as i8),
     },
     // Instruction 0x39: add hl, sp
-    add_hl_rr!(Register16::SP),
+    add_rr_rr!(Register16::HL, Register16::SP),
     // Instruction 0x3a: ld a, (nn)
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -915,7 +954,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("call c, {:x}h", state.wz()),
     },
     // IX instructions
-    UNIMPLEMENTED,
+    Instruction::Prefix(&indexed::IX_TABLE),
     // Instruction 0xde: sbc a, n
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
@@ -1095,7 +1134,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("call m, {:x}h", state.wz()),
     },
     // IY instructions
-    UNIMPLEMENTED,
+    Instruction::Prefix(&indexed::IY_TABLE),
     // Instruction 0xfe: cp n
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,

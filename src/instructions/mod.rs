@@ -144,6 +144,8 @@ pub enum Instruction {
         /// Printer for the instruction
         printer: fn(&State),
     },
+    /// This prefixed instruction does the same as if it had no prefix
+    NoPrefix,
 }
 
 /// NOP instruction

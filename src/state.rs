@@ -288,6 +288,16 @@ impl State {
         self.get_register_mut_8(Register::Z)
     }
 
+    /// Get the value of the register W
+    pub fn w(&self) -> u8 {
+        self.get_register_8(Register::W)
+    }
+
+    /// Get a mutable reference to the register W
+    pub fn w_mut(&mut self) -> &mut u8 {
+        self.get_register_mut_8(Register::W)
+    }
+
     /// Get the value of the register AF
     pub fn af(&self) -> u16 {
         self.get_register_16(Register16::AF)

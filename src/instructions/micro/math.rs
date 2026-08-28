@@ -94,24 +94,24 @@ pub fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Add a 16-bit value to HL
-pub fn add_hl_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
-    let hl = state.hl();
-    let other = state.get_register_16(register);
+/// Add two 16-bit registers together
+pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -> ExecResult {
+    let acc = state.get_register_16(a);
+    let other = state.get_register_16(b);
     // Flags S, Z and V are unchanged
     let mut flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
-    let (result, carry) = hl.overflowing_add(other);
+    let (result, carry) = acc.overflowing_add(other);
     // Set carry flag
     if carry {
         flags |= Flags::C;
     }
     // Set half carry flag
-    if (hl ^ other ^ result) & HALF_CARRY_BIT_16 as u16 != 0 {
+    if (acc ^ other ^ result) & HALF_CARRY_BIT_16 as u16 != 0 {
         flags |= Flags::H;
     }
     state.update_flags(flags);
-    // Store the result in HL
-    *state.hl_mut() = result.to_le_bytes();
+    // Store the result back in the accumulator register
+    state.set_register_16(a, result);
     ExecResult::Done(cycles)
 }
 

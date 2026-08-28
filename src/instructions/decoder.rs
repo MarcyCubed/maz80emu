@@ -107,6 +107,11 @@ impl Decoder {
                             }
                         }
                     }
+                    Instruction::NoPrefix => {
+                        // Discard the prefix and try again
+                        self.current = self.instruction_set;
+                        self.decode(state)
+                    }
                 }
             }
             DecoderState::Decoded => {
