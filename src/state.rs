@@ -60,6 +60,22 @@ pub enum Register {
     Z,
     /// High byte of the instruction buffer.
     W,
+    /// Alternate F register
+    FAlt,
+    /// Alternate A register
+    AAlt,
+    /// Alternate C register
+    CAlt,
+    /// Alternate B register
+    BAlt,
+    /// Alternate E register
+    EAlt,
+    /// Alternate D register
+    DAlt,
+    /// Alternate L register
+    LAlt,
+    /// Alternate H register
+    HAlt,
 }
 
 /// The list of 16 bit registers.
@@ -89,18 +105,21 @@ pub enum Register16 {
     PC,
     /// Instruction buffer
     WZ,
+    /// Alternate AF register
+    AfAlt,
+    /// Alternate BC register
+    BcAlt,
+    /// Alternate DE register
+    DeAlt,
+    /// Alternate HL register
+    HlAlt,
 }
-
-/// The last register with an alternate
-const LAST_ALTERNATE: Register16 = Register16::HL;
 
 /// The state of a Z80 CPU.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct State {
     /// The set of registers
     pub registers: [[u8; 2]; Register16::COUNT],
-    /// Alternate register set for AF, BC, DE and HL
-    pub alternate: [[u8; 2]; LAST_ALTERNATE as usize + 1],
     /// Interrupt flip-flop
     pub iff1: bool,
     /// Temporary storage for `iff1``
@@ -600,25 +619,14 @@ mod tests {
             (Register16::PC, Register::PCH, Register::PCL),
             (Register16::RI, Register::R, Register::I),
             (Register16::SP, Register::SPH, Register::SPL),
+            (Register16::AfAlt, Register::AAlt, Register::FAlt),
+            (Register16::BcAlt, Register::BAlt, Register::CAlt),
+            (Register16::DeAlt, Register::DAlt, Register::EAlt),
         ];
         for (r16, high, low) in grouped {
             assert_eq!(r16 as usize, high as usize / 2);
             assert_eq!(r16 as usize, low as usize / 2);
             assert_eq!(low as usize + 1, high as usize);
-        }
-    }
-
-    /// Ensure all registers with an alternate fit in the alternate register array.
-    #[test]
-    fn alternate_indices_test() {
-        let alt_regs = [
-            Register16::AF,
-            Register16::BC,
-            Register16::DE,
-            Register16::HL,
-        ];
-        for reg in alt_regs {
-            assert!(reg <= LAST_ALTERNATE);
         }
     }
 }

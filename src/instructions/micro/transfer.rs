@@ -4,16 +4,20 @@ use crate::state::{Flags, Register, Register16, State};
 
 /// Switch the data of AF and AF'
 pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
-    let af = state.af_bytes();
-    *state.af_mut() = state.alternate[Register16::AF as usize];
-    state.alternate[Register16::AF as usize] = af;
+    let af = state.af();
+    *state.af_mut() = state.get_register_16_bytes(Register16::AfAlt);
+    state.set_register_16(Register16::AfAlt, af);
     ExecResult::Done(cycles)
 }
 
 /// Switch between register sets
 pub fn exx(state: &mut State, cycles: u32) -> ExecResult {
-    let dest = &mut state.registers[Register16::BC as usize..=Register16::HL as usize];
-    dest.copy_from_slice(&state.alternate[Register16::BC as usize..=Register16::HL as usize]);
+    let offset = Register16::HlAlt as usize - Register16::HL as usize;
+    for register in Register16::BC as usize..Register16::HL as usize {
+        let value = state.registers[register];
+        state.registers[register] = state.registers[register + offset];
+        state.registers[register + offset] = value;
+    }
     ExecResult::Done(cycles)
 }
 
