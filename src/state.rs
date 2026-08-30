@@ -61,20 +61,28 @@ pub enum Register {
     /// High byte of the instruction buffer.
     W,
     /// Alternate F register
+    #[strum(serialize = "flags'")]
     FAlt,
     /// Alternate A register
+    #[strum(serialize = "a'")]
     AAlt,
     /// Alternate C register
+    #[strum(serialize = "c'")]
     CAlt,
     /// Alternate B register
+    #[strum(serialize = "b'")]
     BAlt,
     /// Alternate E register
+    #[strum(serialize = "e'")]
     EAlt,
     /// Alternate D register
+    #[strum(serialize = "d'")]
     DAlt,
     /// Alternate L register
+    #[strum(serialize = "l'")]
     LAlt,
     /// Alternate H register
+    #[strum(serialize = "h'")]
     HAlt,
 }
 
@@ -106,12 +114,16 @@ pub enum Register16 {
     /// Instruction buffer
     WZ,
     /// Alternate AF register
+    #[strum(serialize = "af'")]
     AfAlt,
     /// Alternate BC register
+    #[strum(serialize = "bc'")]
     BcAlt,
     /// Alternate DE register
+    #[strum(serialize = "de'")]
     DeAlt,
     /// Alternate HL register
+    #[strum(serialize = "hl'")]
     HlAlt,
 }
 
