@@ -123,4 +123,14 @@ impl Emulator {
     pub fn disable_tracing(&mut self) {
         self.decoder.disable_tracing();
     }
+
+    /// Show the state before each instruction
+    pub fn enable_state_dump(&mut self) {
+        self.decoder.enable_state_dump();
+    }
+
+    /// Don't show the state before each instruction
+    pub fn disable_state_dump(&mut self) {
+        self.decoder.disable_state_dump();
+    }
 }

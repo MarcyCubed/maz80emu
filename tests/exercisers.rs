@@ -53,6 +53,7 @@ fn run_memory(mut memory: [u8; 0x10000]) {
     // Point PC to the start of the program
     emulator.state.set_register_16(Register16::PC, 0x100);
     //emulator.enable_tracing();
+    //emulator.enable_state_dump();
     loop {
         match emulator.run_with_full_memory(&mut memory) {
             ExecResult::In { .. } => {

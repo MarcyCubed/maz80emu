@@ -482,6 +482,57 @@ impl State {
     pub fn load_data_16(&mut self, data: [u8; 2]) {
         self.set_register_16_bytes(Register16::WZ, data);
     }
+
+    /// Display the state for debugging.
+    ///
+    /// Also shows the opcode if it's known.
+    pub fn print_debug(&self, opcode: Option<u8>) {
+        use Register::{A, AAlt, B, BAlt, C, CAlt, D, DAlt, E, EAlt, H, HAlt, I, L, LAlt, R};
+        use Register16::*;
+
+        fn print_registers(state: &State, registers: &[Register]) {
+            for register in registers {
+                print!(",{}={:02x}h", register, state.get_register_8(*register));
+            }
+        }
+
+        fn print_registers_16(state: &State, registers: &[Register16]) {
+            for register in registers {
+                print!(",{}={:04x}h", register, state.get_register_16(*register));
+            }
+        }
+
+        fn print_flag(state: &State, name: &str, flag: Flags) {
+            print!(",{}={}", name, state.get_flags().is_set(flag) as u8);
+        }
+
+        print!("pc={:04x}h", self.pc());
+        print_registers_16(self, &[SP]);
+        if let Some(opcode) = opcode {
+            print!(",op={:02x}h", opcode);
+        }
+        print_registers(
+            self,
+            &[
+                A, B, C, D, E, H, L, AAlt, BAlt, CAlt, DAlt, EAlt, HAlt, LAlt,
+            ],
+        );
+        print_registers_16(self, &[IX, IY]);
+        print_registers(self, &[I, R]);
+
+        for (name, flag) in [
+            ("c", Flags::C),
+            ("po", Flags::P),
+            ("hc", Flags::H),
+            ("n", Flags::N),
+            ("z", Flags::Z),
+            ("s", Flags::S),
+        ] {
+            print_flag(self, name, flag);
+        }
+
+        println!();
+    }
 }
 
 /// A structure representing Z80 flags

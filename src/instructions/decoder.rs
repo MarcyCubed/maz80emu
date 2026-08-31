@@ -22,6 +22,10 @@ pub(crate) struct Decoder {
     last_printer: fn(&State),
     /// Is tracing enabled?
     is_tracing: bool,
+    /// Is the state being printed before each instruction?
+    show_state: bool,
+    /// The last opcode to be fetched
+    opcode: u8,
 }
 
 /// Decode state machine states
@@ -48,6 +52,8 @@ impl Decoder {
             last_instruction: &[],
             last_printer: |_| {},
             is_tracing: false,
+            show_state: false,
+            opcode: 0,
         }
     }
 
@@ -55,6 +61,16 @@ impl Decoder {
     fn reset(&mut self) {
         self.current = self.instruction_set;
         self.state = INITIAL;
+    }
+
+    /// Show the debugging information
+    fn print_debug(&self, state: &State) {
+        if self.is_tracing {
+            (self.last_printer)(state);
+        }
+        if self.show_state {
+            state.print_debug(Some(self.opcode))
+        }
     }
 
     /// Advance on decoding the next instruction.
@@ -72,8 +88,9 @@ impl Decoder {
                 &[micro::fetch]
             }
             DecoderState::Table => {
+                self.opcode = state.z();
                 // Get the instruction from the table
-                match self.current[state.z() as usize] {
+                match self.current[self.opcode as usize] {
                     Instruction::Prefix(table) => {
                         // It's a prefix, so we need to move to the inner table
                         // and fetch another opcode
@@ -89,9 +106,7 @@ impl Decoder {
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
-                                if self.is_tracing {
-                                    (self.last_printer)(state);
-                                }
+                                self.print_debug(state);
                                 self.reset();
                                 micros
                             }
@@ -116,22 +131,30 @@ impl Decoder {
             }
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions
+                self.print_debug(state);
                 self.reset();
-                if self.is_tracing {
-                    (self.last_printer)(state);
-                }
                 self.last_instruction
             }
         }
     }
 
     /// Show the instructions as they are decoded
-    pub(crate) fn enable_tracing(&mut self) {
+    pub fn enable_tracing(&mut self) {
         self.is_tracing = true;
     }
 
     /// Don't show the instructions
-    pub(crate) fn disable_tracing(&mut self) {
+    pub fn disable_tracing(&mut self) {
         self.is_tracing = false;
+    }
+
+    /// Show the state before each instruction
+    pub fn enable_state_dump(&mut self) {
+        self.show_state = true;
+    }
+
+    /// Don't show the state before each instruction
+    pub fn disable_state_dump(&mut self) {
+        self.show_state = false;
     }
 }
