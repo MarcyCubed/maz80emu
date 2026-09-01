@@ -2,6 +2,7 @@ use maz80emu::cpus::z80::Z80;
 use maz80emu::emulator::Emulator;
 use maz80emu::instructions::ExecResult;
 use maz80emu::state::Register16;
+use std::fs;
 
 const MIN_PRINT: usize = 0;
 const MAX_PRINT: usize = 10000;
@@ -23,10 +24,12 @@ impl CpmRunner {
         // program crashes.
         let mut memory = [0x76; 0x10000];
         memory[0x100..program.len() + 0x100].copy_from_slice(program);
-        // Trap CP/M program exit with an "OUT" instruction
+        // Trap CP/M program exit with an "OUT 1, a" instruction
         memory[0x0] = 0xD3;
-        // CP/M BDOS call is an IN instruction so we can trap and handle it
+        memory[0x1] = 0x00;
+        // CP/M BDOS call is an IN a, 0 instruction so we can trap and handle it
         memory[0x5] = 0xDB;
+        memory[0x6] = 0x00;
         // Return from the BDOS call
         memory[0x7] = 0xC9;
         let mut runner = Self {
@@ -60,16 +63,16 @@ impl CpmRunner {
 
     /// Run the program stored in memory
     fn run(&mut self) {
-        if self.instruction_counter == MAX_PRINT {
-            return;
-        } else if self.instruction_counter == MIN_PRINT {
-            self.emulator.enable_state_dump();
-        }
-
         loop {
+            if self.instruction_counter == MAX_PRINT {
+                return;
+            } else if self.instruction_counter == MIN_PRINT {
+                self.emulator.enable_state_dump();
+            }
             match self.emulator.run_with_full_memory(&mut self.memory) {
                 ExecResult::In { .. } => {
                     self.bdos_call();
+                    self.emulator.state.load_data_8(0xff);
                 }
                 ExecResult::Out { .. } => {
                     println!();
@@ -90,6 +93,15 @@ impl CpmRunner {
 }
 
 fn main() {
-    let mut runner = CpmRunner::new(include_bytes!("prelim.com"));
-    runner.run();
+    for file in std::env::args().skip(1) {
+        match fs::read(&file) {
+            Ok(file) => {
+                let mut runner = CpmRunner::new(&file);
+                runner.run();
+            }
+            Err(error) => {
+                eprintln!("Can't open file {} : {}", file, error)
+            }
+        }
+    }
 }

@@ -7,4 +7,4 @@ edition = "2024"
 strum = { version = "0.28", features = ["derive"] }
 
 [[bin]]
-name = "zexdoc"
+name = "runcpm"
