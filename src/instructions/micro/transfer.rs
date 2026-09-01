@@ -13,7 +13,7 @@ pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
 /// Switch between register sets
 pub fn exx(state: &mut State, cycles: u32) -> ExecResult {
     let offset = Register16::HlAlt as usize - Register16::HL as usize;
-    for register in Register16::BC as usize..Register16::HL as usize {
+    for register in Register16::BC as usize..=Register16::HL as usize {
         let value = state.registers[register];
         state.registers[register] = state.registers[register + offset];
         state.registers[register + offset] = value;
