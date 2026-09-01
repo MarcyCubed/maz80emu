@@ -128,7 +128,7 @@ pub enum Register16 {
 }
 
 /// The state of a Z80 CPU.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy)]
 pub struct State {
     /// The set of registers
     pub registers: [[u8; 2]; Register16::COUNT],
@@ -140,6 +140,22 @@ pub struct State {
     pub mpc: usize,
     /// Interruption mode of the processor
     pub interrupt_mode: InterruptMode,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        let mut state = State {
+            registers: [[0; 2]; Register16::COUNT],
+            iff1: false,
+            iff2: false,
+            mpc: 0,
+            interrupt_mode: InterruptMode::Instruction,
+        };
+
+        state.set_register_16(Register16::AF, 0xffff);
+        state.set_register_16(Register16::SP, 0xffff);
+        state
+    }
 }
 
 impl State {
@@ -481,6 +497,13 @@ impl State {
     /// The value is stored in the `WZ` register
     pub fn load_data_16(&mut self, data: [u8; 2]) {
         self.set_register_16_bytes(Register16::WZ, data);
+    }
+
+    /// Advance the R register to the next value
+    pub fn advance_r(&mut self) {
+        // Advance the R register
+        let r = self.r();
+        *self.r_mut() = (r.wrapping_add(1) & !(1 << 7)) | r & 1 << 7;
     }
 
     /// Display the state for debugging.

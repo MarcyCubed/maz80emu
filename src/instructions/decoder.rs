@@ -63,16 +63,6 @@ impl Decoder {
         self.state = INITIAL;
     }
 
-    /// Show the debugging information
-    fn print_debug(&self, state: &State) {
-        if self.is_tracing {
-            (self.last_printer)(state);
-        }
-        if self.show_state {
-            state.print_debug(Some(self.opcode))
-        }
-    }
-
     /// Advance on decoding the next instruction.
     pub(crate) fn decode(&mut self, state: &mut State) -> &'static [Microinstruction] {
         match self.state {
@@ -89,6 +79,10 @@ impl Decoder {
             }
             DecoderState::Table => {
                 self.opcode = state.z();
+                if self.show_state {
+                    state.print_debug(Some(self.opcode))
+                }
+                state.advance_r();
                 // Get the instruction from the table
                 match self.current[self.opcode as usize] {
                     Instruction::Prefix(table) => {
@@ -106,7 +100,9 @@ impl Decoder {
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
-                                self.print_debug(state);
+                                if self.is_tracing {
+                                    (self.last_printer)(state);
+                                }
                                 self.reset();
                                 micros
                             }
@@ -131,7 +127,9 @@ impl Decoder {
             }
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions
-                self.print_debug(state);
+                if self.is_tracing {
+                    (self.last_printer)(state);
+                }
                 self.reset();
                 self.last_instruction
             }
