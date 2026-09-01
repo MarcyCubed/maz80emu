@@ -628,6 +628,13 @@ impl Flags {
     pub const fn parity(value: u8) -> Self {
         Flags::P.set_if(value.count_ones() & 1 == 0)
     }
+
+    /// Flips the value of the tags selected in the mask
+    pub fn flip(self, mask: Self) -> Self {
+        let reset = self - mask;
+        let flipped = (!self) & mask;
+        reset | flipped
+    }
 }
 
 impl BitOr for Flags {

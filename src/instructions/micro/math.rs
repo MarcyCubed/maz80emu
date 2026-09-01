@@ -4,22 +4,16 @@ use crate::instructions::ExecResult;
 use crate::state::{Flags, Register, Register16, State};
 
 /// The bit representing the sign
-const SIGN_BIT: u16 = 1 << 7;
+const SIGN_BIT: u32 = 7;
 
 /// The bit that can receive a half carry
-const HALF_CARRY_BIT: u16 = 1 << 4;
+const HALF_CARRY_BIT: u32 = 4;
 
-/// The bit out of u8 range
-const CARRY_BIT: u16 = 1 << 8;
+/// The half carry bit on 16-bit math
+const HALF_CARRY_BIT_16: u32 = 12;
 
-/// The bit representing the sign
-const SIGN_BIT_16: u32 = 1 << 15;
-
-/// The bit that can receive a half carry
-const HALF_CARRY_BIT_16: u32 = 1 << 12;
-
-/// The bit out of u16 range
-const CARRY_BIT_16: u32 = 1 << 16;
+/// The carry bit out of u8 range
+const CARRY_BIT: u32 = 8;
 
 /// Increment a 16-bit register
 pub fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
@@ -33,41 +27,32 @@ pub fn dec_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResul
     ExecResult::Done(cycles)
 }
 
-/// Perform an arithmetic operation on the values, getting the assigned flags
-///
-/// Return the sum, the flags and the carry-out. The flags S, Z, V, C and H are updated.
-fn arithmetic_flags(a: u8, b: u8, carry_in: bool, op: fn(u16, u16) -> u16) -> (u8, Flags) {
-    let a = a as u16;
-    let b = b as u16;
-    // Do the math
-    let c = op(op(a, b), carry_in as u16);
-    // Updates the S and Z flags
-    let mut flags = Flags::from_value(c as u8);
-    // Half carry
-    if (a ^ b) & HALF_CARRY_BIT != c & HALF_CARRY_BIT {
-        flags |= Flags::H;
-    }
-    // Overflow == if sign bit was overwritten
-    if a & SIGN_BIT == b & SIGN_BIT && a & SIGN_BIT != c & SIGN_BIT {
-        // Overflow
-        flags |= Flags::V;
-    }
-    // Carry
-    if c & CARRY_BIT != 0 {
-        flags |= Flags::C;
-    }
-    (c as u8, flags)
+/// Check if the operation `a + b = c` had a carry on the specified bit.
+fn check_carry(bit: u32, a: u16, b: u16, sum: u16) -> bool {
+    (sum ^ a ^ b) & (1 << bit) != 0
 }
 
 /// Add two values and a carry-in together, getting the sum and the flags
 fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
-    arithmetic_flags(a, b, carry_in, u16::wrapping_add)
+    let a = a as u16;
+    let b = b as u16;
+    // Do the math
+    let c = u16::wrapping_add(u16::wrapping_add(a, b), carry_in as u16);
+    // Updates the S and Z flags
+    let mut flags = Flags::from_value(c as u8);
+    // Half carry
+    flags |= Flags::H.set_if(check_carry(HALF_CARRY_BIT, a, b, c));
+    // Overflow == if sign bit was overwritten
+    flags |= Flags::V.set_if(check_carry(SIGN_BIT, a, b, c) != check_carry(CARRY_BIT, a, b, c));
+    // Carry
+    flags |= Flags::C.set_if(c & (1 << CARRY_BIT) != 0);
+    (c as u8, flags)
 }
 
 /// Subtract one value and the carry from another, getting the difference and the flags
 fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
-    let (result, flags) = arithmetic_flags(a, b, borrow_in, u16::wrapping_sub);
-    (result, flags | Flags::N)
+    let (result, flags) = add_flags(a, !b, !borrow_in);
+    (result, flags.flip(Flags::C | Flags::H) | Flags::N)
 }
 
 /// Increment an 8-bit register
@@ -106,7 +91,7 @@ pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -
         flags |= Flags::C;
     }
     // Set half carry flag
-    if (acc ^ other ^ result) & HALF_CARRY_BIT_16 as u16 != 0 {
+    if (acc ^ other ^ result) & (1 << HALF_CARRY_BIT) as u16 != 0 {
         flags |= Flags::H;
     }
     state.update_flags(flags);
@@ -284,7 +269,7 @@ fn word_arithmetic_flags(a: u16, b: u16, carry_in: bool, op: fn(u32, u32) -> u32
     // Do the math
     let c = op(op(a, b), carry_in as u32);
     // Updates the S and Z flags
-    let mut flags = if c & SIGN_BIT_16 != 0 {
+    let mut flags = if c & (1 << SIGN_BIT) != 0 {
         Flags::S
     } else if c == 0 {
         Flags::Z
@@ -292,16 +277,16 @@ fn word_arithmetic_flags(a: u16, b: u16, carry_in: bool, op: fn(u32, u32) -> u32
         Flags::new()
     };
     // Half carry
-    if (a ^ b) & HALF_CARRY_BIT_16 != c & HALF_CARRY_BIT_16 {
+    if (a ^ b) & (1 << HALF_CARRY_BIT_16) != c & (1 << HALF_CARRY_BIT_16) {
         flags |= Flags::H;
     }
     // Overflow == if sign bit was overwritten
-    if a & SIGN_BIT_16 == b & SIGN_BIT_16 && a & SIGN_BIT_16 != c & SIGN_BIT_16 {
+    if a & (1 << SIGN_BIT) == b & (1 << SIGN_BIT) && a & (1 << SIGN_BIT) != c & (1 << SIGN_BIT) {
         // Overflow
         flags |= Flags::V;
     }
     // Carry
-    if c & CARRY_BIT_16 != 0 {
+    if c & (1 << CARRY_BIT) != 0 {
         flags |= Flags::C;
     }
     (c as u16, flags)
