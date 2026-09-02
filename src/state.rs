@@ -510,7 +510,7 @@ impl State {
     ///
     /// Also shows the opcode if it's known.
     pub fn print_debug(&self, opcode: Option<u8>) {
-        use Register::{A, AAlt, B, BAlt, C, CAlt, D, DAlt, E, EAlt, H, HAlt, I, L, LAlt, R};
+        use Register::{I, R};
         use Register16::*;
 
         fn print_registers(state: &State, registers: &[Register]) {
@@ -534,14 +534,9 @@ impl State {
         if let Some(opcode) = opcode {
             print!(",op={:02x}h", opcode);
         }
-        print_registers(
-            self,
-            &[
-                A, B, C, D, E, H, L, AAlt, BAlt, CAlt, DAlt, EAlt, HAlt, LAlt,
-            ],
-        );
-        print_registers_16(self, &[IX, IY]);
+        print_registers_16(self, &[AF, BC, DE, HL, IX, IY]);
         print_registers(self, &[I, R]);
+        print_registers_16(self, &[AfAlt, BcAlt, DeAlt, HlAlt]);
 
         for (name, flag) in [
             ("c", Flags::C),
