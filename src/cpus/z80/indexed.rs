@@ -2,16 +2,16 @@
 
 use crate::cpus::z80::{
     adc_r, add_r, add_rr_rr, and_r, cp_r, dec_r, dec_rr, inc_r, inc_rr, ld_mm_rr, ld_r_n, ld_r_r,
-    ld_rr_mm, ld_rr_nn, math_r, or_r, pop_rr, push_rr, sbc_r, sub_r, xor_r,
+    ld_rr_mm, ld_rr_nn, math_r, or_r, pop_rr, push_rr, sbc_r, sub_r, two_prefix, xor_r,
 };
 use crate::instructions::micro::{jump, ld, math, store_16};
 use crate::instructions::{
-    ExecResult, ExtraBytes, Instruction, InstructionSet, NOP, UNIMPLEMENTED,
+    ExecResult, ExtraBytes, Instruction, InstructionSet, NOP, TwoPrefixTable,
 };
 use crate::state::{Register, Register16, State};
 
 /// A trait to abstract away IX and IY registers.
-trait Index {
+pub(super) trait Index {
     /// The index register
     const REGISTER: Register16;
 
@@ -39,7 +39,7 @@ trait Index {
 }
 
 /// Selector for the IX register
-struct IX;
+pub(super) struct IX;
 
 impl Index for IX {
     const REGISTER: Register16 = Register16::IX;
@@ -48,7 +48,7 @@ impl Index for IX {
 }
 
 /// Selector for the IY register
-struct IY;
+pub(super) struct IY;
 
 impl Index for IY {
     const REGISTER: Register16 = Register16::IY;
@@ -116,7 +116,9 @@ macro_rules! math_izd {
     };
 }
 
-const fn make_indexed_instructions<I: Index>() -> InstructionSet {
+const fn make_indexed_instructions<I: Index>(
+    bit_instructions: &'static TwoPrefixTable,
+) -> InstructionSet {
     let mut instructions = [NOP; _];
 
     // Mark instructions as prefix-ignoring ones
@@ -311,7 +313,7 @@ const fn make_indexed_instructions<I: Index>() -> InstructionSet {
     // cp (i?+d)
     instructions[0xbe] = math_izd!("cp", math::cp_r);
     // Bit operations
-    instructions[0xcb] = UNIMPLEMENTED;
+    instructions[0xcb] = Instruction::TwoPrefixes(bit_instructions);
     // pop i?
     instructions[0xe1] = pop_rr!(I::REGISTER);
     // ex (sp), i?
@@ -346,7 +348,7 @@ const fn make_indexed_instructions<I: Index>() -> InstructionSet {
 }
 
 /// Table of IX instructions
-pub(crate) static IX_TABLE: InstructionSet = make_indexed_instructions::<IX>();
+pub(super) static IX_TABLE: InstructionSet = make_indexed_instructions::<IX>(&two_prefix::IX_TABLE);
 
 /// Table of IY instructions
-pub(crate) static IY_TABLE: InstructionSet = make_indexed_instructions::<IY>();
+pub(super) static IY_TABLE: InstructionSet = make_indexed_instructions::<IY>(&two_prefix::IY_TABLE);

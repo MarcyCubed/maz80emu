@@ -1,7 +1,7 @@
 //! Instruction decoder
 
 use crate::instructions::micro::Microinstruction;
-use crate::instructions::{ExtraBytes, Instruction, InstructionSet, micro};
+use crate::instructions::{ExtraBytes, Instruction, InstructionSet, TwoPrefixTable, micro};
 use crate::state::State;
 
 /// The instruction decoder.
@@ -37,6 +37,8 @@ enum DecoderState {
     FetchOpcode,
     /// Do a table lookup on the fetched opcode
     Table,
+    /// An instruction with two prefixes
+    TwoPrefix(&'static TwoPrefixTable),
     /// The instruction is fully decoded is ready to be executed
     Decoded,
 }
@@ -132,7 +134,24 @@ impl Decoder {
                         state.revert_r();
                         result
                     }
+                    Instruction::TwoPrefixes(table) => {
+                        // Remember the table
+                        self.state = DecoderState::TwoPrefix(table);
+                        // Load the rest of the instruction
+                        &[micro::load_word_parameter]
+                    }
                 }
+            }
+            DecoderState::TwoPrefix(table) => {
+                // Reverse Z and W , so the instruction is in Z and the displacement in W
+                let opcode = state.w();
+                *state.w_mut() = state.z();
+                *state.z_mut() = opcode;
+                let instruction = table[opcode as usize];
+                self.last_instruction = instruction.micros;
+                self.last_printer = instruction.printer;
+                self.state = DecoderState::Decoded;
+                self.decode(state)
             }
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions

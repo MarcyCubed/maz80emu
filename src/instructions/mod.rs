@@ -120,6 +120,9 @@ impl ExecResult {
 /// This is a table of instructions that map opcode bytes to instructions
 pub type InstructionSet = [Instruction; 256];
 
+/// A table of bit instructions with two prefixes
+pub type TwoPrefixTable = [TwoPrefixInstruction; 256];
+
 /// How many extra bytes an instruction have after its opcode
 #[derive(Debug, Clone, Copy)]
 pub enum ExtraBytes {
@@ -146,6 +149,17 @@ pub enum Instruction {
     },
     /// This prefixed instruction does the same as if it had no prefix
     NoPrefix,
+    /// It's an instruction with two prefixes
+    TwoPrefixes(&'static TwoPrefixTable),
+}
+
+/// An instruction with two prefixes
+#[derive(Debug, Clone, Copy)]
+pub struct TwoPrefixInstruction {
+    /// The list of micro instructions implementing the instruction
+    pub micros: &'static [Microinstruction],
+    /// Printer for the instruction
+    pub printer: fn(&State),
 }
 
 /// NOP instruction

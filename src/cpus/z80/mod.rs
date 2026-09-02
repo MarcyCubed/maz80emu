@@ -3,6 +3,7 @@
 mod bit_instructions;
 mod indexed;
 mod misc;
+mod two_prefix;
 
 use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP};
