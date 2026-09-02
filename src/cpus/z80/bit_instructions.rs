@@ -111,12 +111,12 @@ pub static BIT_INSTRUCTIONS: InstructionSet = {
     copy_8(
         &mut instructions,
         0x10,
-        bit_instruction_group!("rl", bit::rlc_r),
+        bit_instruction_group!("rl", bit::rl_r),
     );
     copy_8(
         &mut instructions,
         0x18,
-        bit_instruction_group!("rr", bit::rrc_r),
+        bit_instruction_group!("rr", bit::rr_r),
     );
     copy_8(
         &mut instructions,
