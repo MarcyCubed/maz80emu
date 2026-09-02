@@ -155,7 +155,7 @@ const fn make_indexed_instructions<I: Index>() -> InstructionSet {
     // dec i?h
     instructions[0x25] = dec_r!(I::HIGH);
     // ld i?h, n
-    instructions[0x25] = ld_r_n!(I::HIGH);
+    instructions[0x26] = ld_r_n!(I::HIGH);
     // add i?, i?
     instructions[0x29] = add_rr_rr!(I::REGISTER, I::REGISTER);
     // ld i?, (mm)
