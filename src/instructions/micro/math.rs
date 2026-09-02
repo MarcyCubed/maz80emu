@@ -6,6 +6,9 @@ use crate::state::{Flags, Register, Register16, State};
 /// The bit representing the sign
 const SIGN_BIT: u32 = 7;
 
+/// The bit representing the sign for 16-bit values
+const SIGN_BIT_16: u32 = 15;
+
 /// The bit that can receive a half carry
 const HALF_CARRY_BIT: u32 = 4;
 
@@ -14,6 +17,9 @@ const HALF_CARRY_BIT_16: u32 = 12;
 
 /// The carry bit out of u8 range
 const CARRY_BIT: u32 = 8;
+
+/// The carry bit out of u16 range
+const CARRY_BIT_16: u32 = 16;
 
 /// Increment a 16-bit register
 pub fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
@@ -79,22 +85,43 @@ pub fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
+/// Check if the 16-bit operation `a + b = c` had a carry on the specified bit.
+fn check_carry_16(bit: u32, a: u32, b: u32, sum: u32) -> bool {
+    (sum ^ a ^ b) & (1 << bit) != 0
+}
+
+/// Adds two 16-bit numbers and the carry together, returning the sum and the flags
+fn add_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
+    let a = a as u32;
+    let b = b as u32;
+    // Do the math
+    let c = a.wrapping_add(b).wrapping_add(carry_in as u32);
+    // Updates the S and Z flags
+    let mut flags = Flags::Z.set_if(c == 0);
+    flags |= Flags::S.set_if(c & (1 << SIGN_BIT_16) != 0);
+    // Half carry
+    flags |= Flags::H.set_if(check_carry_16(HALF_CARRY_BIT_16, a, b, c));
+    // Overflow == if sign bit was overwritten
+    flags |= Flags::V
+        .set_if(check_carry_16(SIGN_BIT_16, a, b, c) != check_carry_16(CARRY_BIT_16, a, b, c));
+    // Carry
+    flags |= Flags::C.set_if(c & (1 << CARRY_BIT_16) != 0);
+    (c as u16, flags)
+}
+
+/// Subtract one 16-bit value and the carry from another, getting the difference and the flags
+fn sub_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
+    let (result, flags) = add_16_flags(a, !b, !carry_in);
+    (result, flags.flip(Flags::C | Flags::H) | Flags::N)
+}
+
 /// Add two 16-bit registers together
 pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -> ExecResult {
-    let acc = state.get_register_16(a);
-    let other = state.get_register_16(b);
-    // Flags S, Z and V are unchanged
-    let mut flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
-    let (result, carry) = acc.overflowing_add(other);
-    // Set carry flag
-    if carry {
-        flags |= Flags::C;
-    }
-    // Set half carry flag
-    if (acc ^ other ^ result) & (1 << HALF_CARRY_BIT_16) != 0 {
-        flags |= Flags::H;
-    }
-    state.update_flags(flags);
+    let (result, flags) = add_16_flags(state.get_register_16(a), state.get_register_16(b), false);
+    // Only use the flags C and H
+    let flags = flags & (Flags::C | Flags::H);
+    let old_flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
+    state.update_flags(flags | old_flags);
     // Store the result back in the accumulator register
     state.set_register_16(a, result);
     ExecResult::Done(cycles)
@@ -260,45 +287,12 @@ pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Perform an arithmetic operation on 2 16-bit values, getting the assigned flags
-///
-/// Return the sum, the flags and the carry-out. The flags S, Z, V, C and H are updated.
-fn word_arithmetic_flags(a: u16, b: u16, carry_in: bool, op: fn(u32, u32) -> u32) -> (u16, Flags) {
-    let a = a as u32;
-    let b = b as u32;
-    // Do the math
-    let c = op(op(a, b), carry_in as u32);
-    // Updates the S and Z flags
-    let mut flags = if c & (1 << SIGN_BIT) != 0 {
-        Flags::S
-    } else if c == 0 {
-        Flags::Z
-    } else {
-        Flags::new()
-    };
-    // Half carry
-    if (a ^ b) & (1 << HALF_CARRY_BIT_16) != c & (1 << HALF_CARRY_BIT_16) {
-        flags |= Flags::H;
-    }
-    // Overflow == if sign bit was overwritten
-    if a & (1 << SIGN_BIT) == b & (1 << SIGN_BIT) && a & (1 << SIGN_BIT) != c & (1 << SIGN_BIT) {
-        // Overflow
-        flags |= Flags::V;
-    }
-    // Carry
-    if c & (1 << CARRY_BIT) != 0 {
-        flags |= Flags::C;
-    }
-    (c as u16, flags)
-}
-
 /// 16-bit subtraction with carry
 pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
-    let (hl, flags) = word_arithmetic_flags(
+    let (hl, flags) = sub_16_flags(
         state.hl(),
         state.get_register_16(reg),
         state.get_flags().is_set(Flags::C),
-        u32::wrapping_sub,
     );
     *state.hl_mut() = hl.to_le_bytes();
     state.update_flags(flags);
@@ -307,11 +301,10 @@ pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult 
 
 /// 16-bit addition with carry
 pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
-    let (hl, flags) = word_arithmetic_flags(
+    let (hl, flags) = add_16_flags(
         state.hl(),
         state.get_register_16(reg),
         state.get_flags().is_set(Flags::C),
-        u32::wrapping_add,
     );
     *state.hl_mut() = hl.to_le_bytes();
     state.update_flags(flags);
