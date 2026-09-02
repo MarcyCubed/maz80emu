@@ -225,7 +225,7 @@ const fn make_indexed_instructions<I: Index>() -> InstructionSet {
     // ld h,(i?+d)
     instructions[0x66] = ld_r_izd!(Register::H);
     // ld i?h, a
-    instructions[0x67] = ld_r_r!(I::LOW, Register::A);
+    instructions[0x67] = ld_r_r!(I::HIGH, Register::A);
     // ld i?l, b
     instructions[0x68] = ld_r_r!(I::LOW, Register::B);
     // ld i?l, c

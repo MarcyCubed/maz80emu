@@ -4,8 +4,11 @@ use maz80emu::instructions::ExecResult;
 use maz80emu::state::Register16;
 use std::fs;
 
-const MIN_PRINT: usize = 0;
-const MAX_PRINT: usize = 10000;
+const MIN_PRINT: usize = usize::MAX;
+const MAX_PRINT: usize = usize::MAX;
+
+//const MIN_PRINT: usize = 000000;
+//const MAX_PRINT: usize = 100000;
 
 /// Run a program in a very limited CP/M emulation
 struct CpmRunner {
@@ -68,9 +71,11 @@ impl CpmRunner {
                 return;
             } else if self.instruction_counter == MIN_PRINT {
                 self.emulator.enable_state_dump();
-                self.emulator.enable_tracing();
+                //self.emulator.enable_tracing();
             }
-            match self.emulator.run_with_full_memory(&mut self.memory) {
+            match self.emulator.run_with_memory_trap(&mut self.memory, |er| {
+                matches!(er, ExecResult::Fetch { .. })
+            }) {
                 ExecResult::In { .. } => {
                     self.bdos_call();
                     self.emulator.state.load_data_8(0xff);
@@ -85,9 +90,11 @@ impl CpmRunner {
                     println!("Crashed");
                     break;
                 }
-                _ => {
+                ExecResult::Fetch { address } => {
+                    self.emulator.send_byte(self.memory[address as usize]);
                     self.instruction_counter += 1;
                 }
+                _ => {}
             }
         }
     }

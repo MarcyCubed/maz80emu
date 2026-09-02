@@ -506,6 +506,13 @@ impl State {
         *self.r_mut() = (r.wrapping_add(1) & !(1 << 7)) | r & 1 << 7;
     }
 
+    /// Move R backwards
+    pub fn revert_r(&mut self) {
+        // Advance the R register
+        let r = self.r();
+        *self.r_mut() = (r.wrapping_sub(1) & !(1 << 7)) | r & 1 << 7;
+    }
+
     /// Display the state for debugging.
     ///
     /// Also shows the opcode if it's known.
@@ -595,6 +602,17 @@ impl Flags {
     }
 
     /// Get the sign and zero flags from a number
+    pub fn sz(number: u8) -> Self {
+        if number == 0 {
+            Self::Z
+        } else if number > 0b01111111 {
+            Self::S
+        } else {
+            Self(0)
+        }
+    }
+
+    /// Get the S, Z, X and Y flags from a value
     pub fn from_value(number: u8) -> Self {
         Flags::xy(number)
             | if number == 0 {
@@ -649,6 +667,11 @@ impl Flags {
     /// Make a copy of these flags resetting all bits selected by the mask
     pub fn reset(self, mask: Self) -> Self {
         self & !mask
+    }
+
+    /// Get the flags specified in the mask
+    pub fn select(self, mask: Self) -> Self {
+        Self(self.0 & mask.0)
     }
 }
 

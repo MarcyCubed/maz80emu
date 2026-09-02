@@ -1,6 +1,6 @@
 use crate::instructions::ExecResult;
 use crate::instructions::micro::math;
-use crate::state::{Flags, Register, Register16, State};
+use crate::state::{Flags, Register16, State};
 
 /// Switch the data of AF and AF'
 pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
@@ -31,8 +31,11 @@ fn ldx_registers(state: &mut State, offset: u16) {
     *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
     let bc = state.bc().wrapping_sub(1);
     *state.bc_mut() = bc.to_le_bytes();
-    let flags = state.get_flags() - (Flags::H | Flags::N | Flags::V);
-    state.update_flags(flags | Flags::P.set_if(bc != 0));
+    let flags = state.get_flags() - (Flags::H | Flags::N | Flags::V | Flags::X | Flags::Y);
+    // The XY flags on ldi and friends are weird
+    let za = state.z().wrapping_add(state.a());
+    let xy = Flags::X.set_if(za & 1 << 3 != 0) | Flags::Y.set_if(za & 1 << 1 != 0);
+    state.update_flags(flags | Flags::P.set_if(bc != 0) | xy);
 }
 
 /// Updates the registers for a `LDI` instruction
@@ -89,15 +92,21 @@ pub fn lddr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) 
 
 /// Updates the registers for a `CPX(L)` instruction after HL was already loaded.
 fn cpx_registers(state: &mut State, offset: u16) {
-    let bc = state.bc().wrapping_add(offset);
+    let bc = state.bc().wrapping_sub(1);
     *state.bc_mut() = bc.to_le_bytes();
-    *state.hl_mut() = state.hl().wrapping_add(1).to_le_bytes();
+    *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
 
-    let c_flag = state.get_flags() & Flags::C;
-    math::cp_r(state, Register::Z, 0);
-    state.update_flags(
-        (state.get_flags() - Flags::C - Flags::V) | c_flag | Flags::V.set_if(bc != 0),
-    );
+    let (diff, flags) = math::sub_flags(state.a(), state.z(), false);
+    // The strange source of X and Y
+    let xy_diff = diff.wrapping_sub(flags.is_set(Flags::H) as u8);
+
+    let flags = flags.select(Flags::S | Flags::Z | Flags::H | Flags::N)
+        | state.get_flags().select(Flags::C)
+        | Flags::P.set_if(bc != 0)
+        | Flags::X.set_if(xy_diff & (1 << 3) != 0)
+        | Flags::Y.set_if(xy_diff & (1 << 1) != 0);
+
+    state.update_flags(flags);
 }
 
 /// Updates the registers for a `CPI` instruction

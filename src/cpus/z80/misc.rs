@@ -246,11 +246,11 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
         state.interrupt_mode = InterruptMode::Instruction;
         ExecResult::Done(0)
     });
-    table[0x56] = simple_instruction!("im 0", |state| {
+    table[0x56] = simple_instruction!("im 1", |state| {
         state.interrupt_mode = InterruptMode::Rst0038;
         ExecResult::Done(0)
     });
-    table[0x53] = simple_instruction!("im 0", |state| {
+    table[0x5e] = simple_instruction!("im 2", |state| {
         state.interrupt_mode = InterruptMode::Vectored;
         ExecResult::Done(0)
     });

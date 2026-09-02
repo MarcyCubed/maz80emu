@@ -6,20 +6,11 @@ use crate::state::{Flags, Register, Register16, State};
 /// The bit representing the sign
 const SIGN_BIT: u32 = 7;
 
-/// The bit representing the sign for 16-bit values
-const SIGN_BIT_16: u32 = 15;
-
 /// The bit that can receive a half carry
 const HALF_CARRY_BIT: u32 = 4;
 
-/// The half carry bit on 16-bit math
-const HALF_CARRY_BIT_16: u32 = 12;
-
 /// The carry bit out of u8 range
 const CARRY_BIT: u32 = 8;
-
-/// The carry bit out of u16 range
-const CARRY_BIT_16: u32 = 16;
 
 /// Increment a 16-bit register
 pub fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
@@ -39,7 +30,7 @@ fn check_carry(bit: u32, a: u16, b: u16, sum: u16) -> bool {
 }
 
 /// Add two values and a carry-in together, getting the sum and the flags
-fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
+pub(crate) fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
     let a = a as u16;
     let b = b as u16;
     // Do the math
@@ -56,7 +47,7 @@ fn add_flags(a: u8, b: u8, carry_in: bool) -> (u8, Flags) {
 }
 
 /// Subtract one value and the carry from another, getting the difference and the flags
-fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
+pub(crate) fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
     let (result, flags) = add_flags(a, !b, !borrow_in);
     (result, flags.flip(Flags::C | Flags::H) | Flags::N)
 }
@@ -85,28 +76,15 @@ pub fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Check if the 16-bit operation `a + b = c` had a carry on the specified bit.
-fn check_carry_16(bit: u32, a: u32, b: u32, sum: u32) -> bool {
-    (sum ^ a ^ b) & (1 << bit) != 0
-}
-
 /// Adds two 16-bit numbers and the carry together, returning the sum and the flags
 fn add_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
-    let a = a as u32;
-    let b = b as u32;
-    // Do the math
-    let c = a.wrapping_add(b).wrapping_add(carry_in as u32);
-    // Updates the S and Z flags
-    let mut flags = Flags::Z.set_if(c == 0);
-    flags |= Flags::S.set_if(c & (1 << SIGN_BIT_16) != 0);
-    // Half carry
-    flags |= Flags::H.set_if(check_carry_16(HALF_CARRY_BIT_16, a, b, c));
-    // Overflow == if sign bit was overwritten
-    flags |= Flags::V
-        .set_if(check_carry_16(SIGN_BIT_16, a, b, c) != check_carry_16(CARRY_BIT_16, a, b, c));
-    // Carry
-    flags |= Flags::C.set_if(c & (1 << CARRY_BIT_16) != 0);
-    (c as u16, flags)
+    let a = a.to_le_bytes();
+    let b = b.to_le_bytes();
+    let (low, flags) = add_flags(a[0], b[0], carry_in);
+    let (high, flags) = add_flags(a[1], b[1], flags.is_set(Flags::C));
+    let result = u16::from_le_bytes([low, high]);
+    let flags = flags.reset(Flags::Z) | Flags::Z.set_if(result == 0);
+    (u16::from_le_bytes([low, high]), flags)
 }
 
 /// Subtract one 16-bit value and the carry from another, getting the difference and the flags
@@ -118,8 +96,8 @@ fn sub_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
 /// Add two 16-bit registers together
 pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -> ExecResult {
     let (result, flags) = add_16_flags(state.get_register_16(a), state.get_register_16(b), false);
-    // Only use the flags C and H
-    let flags = flags & (Flags::C | Flags::H);
+    // Only use the flags C, H, X and Y
+    let flags = flags & (Flags::C | Flags::H | Flags::X | Flags::Y);
     let old_flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
     state.update_flags(flags | old_flags);
     // Store the result back in the accumulator register
@@ -129,6 +107,33 @@ pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -
 
 /// Adjust a BCD value after a math operation
 pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
+    let a = state.a();
+    let flags = state.get_flags();
+
+    let mut diff = 0;
+    if flags.is_set(Flags::H) || a & 0x0f > 9 {
+        diff = 0x06;
+    }
+    if flags.is_set(Flags::C) || a > 0x99 {
+        diff += 0x60;
+    }
+
+    let daa = if flags.is_set(Flags::N) {
+        a.wrapping_sub(diff)
+    } else {
+        a.wrapping_add(diff)
+    };
+
+    *state.a_mut() = daa;
+    state.update_flags(
+        flags.select(Flags::N | Flags::C)
+            | Flags::from_value(daa)
+            | Flags::C.set_if(a > 0x99)
+            | Flags::H.set_if((a ^ daa) & (1 << 4) != 0)
+            | Flags::parity(daa),
+    );
+
+    /*
     let a = state.a();
     let flags_0 = state.get_flags();
     //let high_nybble = a >> 4;
@@ -151,7 +156,7 @@ pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
     } else {
         a.wrapping_sub(diff)
     };
-    // S and Z set according to value
+    // X, Y, S and Z set according to value
     flags |= Flags::from_value(a);
     if (flags_0.is_set(Flags::N) && flags_0.is_set(Flags::H) && low_nybble <= 0x5)
         || (low_nybble > 0x9 && !flags_0.is_set(Flags::N))
@@ -160,6 +165,7 @@ pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
     }
     *state.a_mut() = a;
     state.update_flags(flags);
+    */
     ExecResult::Done(cycles)
 }
 
@@ -167,8 +173,14 @@ pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
 ///
 /// `!a`
 pub fn cpl(state: &mut State, cycles: u32) -> ExecResult {
-    *state.a_mut() = !state.a();
-    let flags = state.get_flags() | Flags::N | Flags::H;
+    let complement = !state.a();
+    *state.a_mut() = complement;
+    let flags = state
+        .get_flags()
+        .select(Flags::C | Flags::P | Flags::Z | Flags::S)
+        | Flags::N
+        | Flags::H
+        | Flags::xy(complement);
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -193,19 +205,19 @@ pub fn dec_z_mem(state: &mut State, address: u16) -> ExecResult {
 
 /// Set the carry flag
 pub fn scf(state: &mut State, cycles: u32) -> ExecResult {
-    let flags = (state.get_flags() | Flags::C) - (Flags::H | Flags::N);
+    let flags =
+        state.get_flags().select(Flags::S | Flags::Z | Flags::P) | Flags::C | Flags::xy(state.a());
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
 
 /// Complement the carry flag
 pub fn ccf(state: &mut State, cycles: u32) -> ExecResult {
-    let flags_0 = state.get_flags();
-    let mut flags = flags_0 - (Flags::H | Flags::N | Flags::C);
-    flags |= Flags::C & !flags_0;
-    if flags_0.is_set(Flags::C) {
-        flags |= Flags::H
-    }
+    let old_flags = state.get_flags();
+    let flags = old_flags.select(Flags::S | Flags::Z | Flags::P)
+        | Flags::H.set_if(old_flags.is_set(Flags::C))
+        | Flags::C.set_if(!old_flags.is_set(Flags::C))
+        | Flags::xy(state.a());
     state.update_flags(flags);
     ExecResult::Done(cycles)
 }
@@ -282,8 +294,10 @@ pub fn or_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 /// Compare the accumulator and the register
 pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     //println!(" a = {:x}h  x = {:x}h  ", state.a(), state.get_register_8(reg));
-    let (_, flags) = sub_flags(state.a(), state.get_register_8(reg), false);
-    state.update_flags(flags);
+    let value = state.get_register_8(reg);
+    let (_, flags) = sub_flags(state.a(), value, false);
+    let flags = flags - Flags::X - Flags::Y;
+    state.update_flags(flags | Flags::xy(value));
     ExecResult::Done(cycles)
 }
 

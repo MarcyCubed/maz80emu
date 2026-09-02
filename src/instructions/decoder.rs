@@ -127,7 +127,10 @@ impl Decoder {
                     Instruction::NoPrefix => {
                         // Discard the prefix and try again
                         self.current = self.instruction_set;
-                        self.decode(state)
+                        let result = self.decode(state);
+                        // Don't increase R twice
+                        state.revert_r();
+                        result
                     }
                 }
             }

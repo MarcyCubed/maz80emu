@@ -8,7 +8,8 @@ pub fn rlca(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let a = a.rotate_left(1);
     // Flags S, Z and V are unchanged
-    let mut flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
+    let mut flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
+    flags |= Flags::xy(a);
     // Flag C is the bit 7 (now moved to bit 0) of the accumulator
     if a & 1 << 0 != 0 {
         flags |= Flags::C;
@@ -23,7 +24,8 @@ pub fn rrca(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let a = a.rotate_right(1);
     // Flags S, Z and V are unchanged
-    let mut flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
+    let mut flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
+    flags |= Flags::xy(a);
     // Flag C is the bit 0 (now moved to bit 7) of the accumulator
     if a & 1 << 7 != 0 {
         flags |= Flags::C;
@@ -42,7 +44,7 @@ pub fn rla(state: &mut State, cycles: u32) -> ExecResult {
     let a = acc << 1;
     let a = a | state.get_flags().is_set(Flags::C) as u8;
     // Flags S, Z and V are unchanged
-    let flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
+    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
     // New C flag is the old lsb
     let flags = flags | new_c_flag;
 
@@ -60,7 +62,7 @@ pub fn rra(state: &mut State, cycles: u32) -> ExecResult {
     let a = acc >> 1;
     let a = a | ((state.get_flags().is_set(Flags::C) as u8) << 7);
     // Flags S, Z and V are unchanged
-    let flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
+    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
     // New C flag is the old MSB
     let flags = flags | new_c_flag;
 
@@ -156,8 +158,14 @@ pub fn srl_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 ///
 /// If the bit is `0`, sets the `Z` flag
 pub fn bit_r(state: &mut State, reg: Register, bit_number: u32, cycles: u32) -> ExecResult {
-    let flags = (state.get_flags() - Flags::Z - Flags::N) | Flags::H;
-    state.update_flags(flags | Flags::Z.set_if(state.get_register_8(reg) & (1 << bit_number) == 0));
+    let value = state.get_register_8(reg);
+    let bit = value & (1 << bit_number);
+    let flags = state.get_flags().select(Flags::C)
+        | Flags::from_value(bit)
+        | Flags::xy(value)
+        | Flags::parity(bit)
+        | Flags::H;
+    state.update_flags(flags);
     ExecResult::Done(cycles)
 }
 
