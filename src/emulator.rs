@@ -41,13 +41,22 @@ impl Emulator {
         }
     }
 
-    /// Run the emulator with memory.
+    /// Run the emulator with a given memory, optionally disabling automatic handling of any
+    /// operation.
     ///
-    /// Handle memory access for the emulator. If the requested address is out of bounds, the
-    /// load or store request will be returned as in [[Emulator::run]].
-    pub fn run_with_memory(&mut self, memory: &mut [u8]) -> ExecResult {
+    /// If the requested address is within the memory slice and `trap` returns `false`, the memory
+    /// request will be processed automatically.
+    /// Otherwise, the load or store request will be returned as in [[Emulator::run]].
+    pub fn run_with_memory_trap<F: Fn(ExecResult) -> bool>(
+        &mut self,
+        memory: &mut [u8],
+        trap: F,
+    ) -> ExecResult {
         loop {
             let result = self.run();
+            if trap(result) {
+                return result;
+            }
             match result {
                 ExecResult::Load { address } | ExecResult::Fetch { address } => {
                     match memory.get(address as usize).copied() {
@@ -58,34 +67,40 @@ impl Emulator {
                     }
                 }
                 ExecResult::Load16 { address } => {
-                    let address = address as usize;
-                    if address + 1 >= memory.len() {
+                    let address_0 = address as usize;
+                    let address_1 = address_0.wrapping_add(1);
+                    if address_0 >= memory.len() || address_1 >= memory.len() {
                         return result;
                     } else {
                         self.state
-                            .load_data_16([memory[address], memory[address + 1]]);
+                            .load_data_16([memory[address_0], memory[address_1]]);
                     }
                 }
-                ExecResult::Store { address, data } => {
-                    let address = address as usize;
-                    if address >= memory.len() {
-                        memory[address] = data;
-                    } else {
-                        return result;
-                    }
-                }
+                ExecResult::Store { address, data } => match memory.get_mut(address as usize) {
+                    None => return result,
+                    Some(cell) => *cell = data,
+                },
                 ExecResult::Store16 { address, data } => {
-                    let address = address as usize;
-                    if address + 1 >= memory.len() {
-                        memory[address] = data[0];
-                        memory[address + 1] = data[1];
-                    } else {
+                    let address_0 = address as usize;
+                    let address_1 = address_0.wrapping_add(1);
+                    if address_0 >= memory.len() || address_1 >= memory.len() {
                         return result;
+                    } else {
+                        memory[address_0] = data[0];
+                        memory[address_1] = data[1];
                     }
                 }
                 _ => return result,
             }
         }
+    }
+
+    /// Run the emulator with memory.
+    ///
+    /// Handle memory access for the emulator. If the requested address is out of bounds, the
+    /// load or store request will be returned as in [[Emulator::run]].
+    pub fn run_with_memory(&mut self, memory: &mut [u8]) -> ExecResult {
+        self.run_with_memory_trap(memory, |_| false)
     }
 
     /// Run the emulator with 64 kilobytes of memory.
@@ -112,6 +127,16 @@ impl Emulator {
                 _ => return result,
             }
         }
+    }
+
+    /// Pass a byte to the emulator to complete a memory or input instruction
+    pub fn send_byte(&mut self, byte: u8) {
+        self.state.load_data_8(byte)
+    }
+
+    /// Pass a word to the emulator to complete a memory load
+    pub fn send_word(&mut self, word: [u8; 2]) {
+        self.state.load_data_16(word)
     }
 
     /// Show the instructions as they are executed
