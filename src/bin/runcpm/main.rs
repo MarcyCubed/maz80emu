@@ -68,6 +68,7 @@ impl CpmRunner {
                 return;
             } else if self.instruction_counter == MIN_PRINT {
                 self.emulator.enable_state_dump();
+                self.emulator.enable_tracing();
             }
             match self.emulator.run_with_full_memory(&mut self.memory) {
                 ExecResult::In { .. } => {

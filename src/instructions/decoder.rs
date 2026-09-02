@@ -26,6 +26,8 @@ pub(crate) struct Decoder {
     show_state: bool,
     /// The last opcode to be fetched
     opcode: u8,
+    /// Address of the instruction being executed
+    address: u16,
 }
 
 /// Decode state machine states
@@ -54,6 +56,7 @@ impl Decoder {
             is_tracing: false,
             show_state: false,
             opcode: 0,
+            address: 0,
         }
     }
 
@@ -63,15 +66,18 @@ impl Decoder {
         self.state = INITIAL;
     }
 
+    /// Display the current instruction
+    fn display_instruction(&self, state: &State) {
+        print!("{:0>4x}h   ", self.address);
+        (self.last_printer)(state);
+    }
+
     /// Advance on decoding the next instruction.
     pub(crate) fn decode(&mut self, state: &mut State) -> &'static [Microinstruction] {
         match self.state {
             DecoderState::FetchOpcode => {
                 // Did nothing yet. We have to load the upcode
-                if self.is_tracing {
-                    print!("{:0>4x}h   ", state.pc())
-                }
-
+                self.address = state.pc();
                 // Next state is to check the table
                 self.state = DecoderState::Table;
                 // Fetch the opcode
@@ -101,7 +107,7 @@ impl Decoder {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
                                 if self.is_tracing {
-                                    (self.last_printer)(state);
+                                    self.display_instruction(state);
                                 }
                                 self.reset();
                                 micros
@@ -128,7 +134,7 @@ impl Decoder {
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions
                 if self.is_tracing {
-                    (self.last_printer)(state);
+                    self.display_instruction(state);
                 }
                 self.reset();
                 self.last_instruction
