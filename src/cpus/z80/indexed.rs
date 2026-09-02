@@ -143,7 +143,7 @@ const fn make_indexed_instructions<I: Index>() -> InstructionSet {
     // add i?, bc
     instructions[0x09] = add_rr_rr!(I::REGISTER, Register16::BC);
     // add i?, de
-    instructions[0x09] = add_rr_rr!(I::REGISTER, Register16::DE);
+    instructions[0x19] = add_rr_rr!(I::REGISTER, Register16::DE);
     // ld i?, nn
     instructions[0x21] = ld_rr_nn!(I::REGISTER);
     // ld (mm), i?
