@@ -583,6 +583,12 @@ impl Flags {
     /// Sign flag
     pub const S: Flags = Flags(1 << 7);
 
+    /// Undocumented flag X
+    pub const X: Flags = Flags(1 << 3);
+
+    /// Undocumented flag Y
+    pub const Y: Flags = Flags(1 << 5);
+
     /// New empty flags with nothing set
     pub fn new() -> Self {
         Flags(0)
@@ -590,13 +596,14 @@ impl Flags {
 
     /// Get the sign and zero flags from a number
     pub fn from_value(number: u8) -> Self {
-        if number == 0 {
-            Self::Z
-        } else if number > 0b01111111 {
-            Self::S
-        } else {
-            Self::new()
-        }
+        Flags::xy(number)
+            | if number == 0 {
+                Self::Z
+            } else if number > 0b01111111 {
+                Self::S
+            } else {
+                Self::new()
+            }
     }
 
     /// Get the numeric value from a flag
@@ -624,11 +631,24 @@ impl Flags {
         Flags::P.set_if(value.count_ones() & 1 == 0)
     }
 
+    /// Get the X and Y flags for a value
+    pub const fn xy(value: u8) -> Self {
+        Flags(value & (Flags::X.0 | Flags::Y.0))
+    }
+
     /// Flips the value of the tags selected in the mask
     pub fn flip(self, mask: Self) -> Self {
-        let reset = self - mask;
-        let flipped = (!self) & mask;
-        reset | flipped
+        Self(self.0 ^ mask.0)
+    }
+
+    /// Make a copy of these flags setting all bits selected by the mask
+    pub fn set(self, mask: Self) -> Self {
+        self | mask
+    }
+
+    /// Make a copy of these flags resetting all bits selected by the mask
+    pub fn reset(self, mask: Self) -> Self {
+        self & !mask
     }
 }
 
