@@ -91,7 +91,7 @@ pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -
         flags |= Flags::C;
     }
     // Set half carry flag
-    if (acc ^ other ^ result) & (1 << HALF_CARRY_BIT) as u16 != 0 {
+    if (acc ^ other ^ result) & (1 << HALF_CARRY_BIT_16) != 0 {
         flags |= Flags::H;
     }
     state.update_flags(flags);
