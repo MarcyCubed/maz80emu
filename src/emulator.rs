@@ -2,9 +2,9 @@
 
 use crate::cpus::z80::Z80;
 use crate::instructions::decoder::Decoder;
-use crate::instructions::micro::Microinstruction;
+use crate::instructions::micro::{Microinstruction, jump};
 use crate::instructions::{ExecResult, InstructionSet};
-use crate::state::State;
+use crate::state::{InterruptMode, State};
 
 /// The Z80 emulator
 #[derive(Debug, Clone)]
@@ -15,6 +15,14 @@ pub struct Emulator {
     decoder: Decoder,
     /// The microinstructions being executed
     micros: &'static [Microinstruction],
+    /// Is a Nonmaskable Interrupt waiting to be handled?
+    nmi_pending: bool,
+    /// Is a regular interrupt waiting to be handled?
+    int_pending: bool,
+    /// Data for the interrupt
+    interrupt_data: u8,
+    /// The result of the last time `run` was executed
+    last_result: ExecResult,
 }
 
 impl Emulator {
@@ -24,6 +32,10 @@ impl Emulator {
             state: Default::default(),
             decoder: Decoder::new(instruction_set),
             micros: &[],
+            nmi_pending: false,
+            int_pending: false,
+            interrupt_data: 0,
+            last_result: ExecResult::Done(0),
         }
     }
 
@@ -32,19 +44,88 @@ impl Emulator {
         Self::new_with_instruction_set(&Z80)
     }
 
-    /// Runs the emulator
+    /// Check if the processor is halted
+    pub fn is_halted(&self) -> bool {
+        self.last_result == ExecResult::Halt
+    }
+
+    /// Try to service a pending interrupt
+    ///
+    /// if an interrupt can be serviced, return a list of microinstructions to run the interrupt
+    /// handler and an `ExecResult` marking the time it took.
+    /// Otherwise, return `None` if there is no interrupt to service, if they are disabled or if the
+    /// processor is busy processing.
+    fn service_interrupt(&mut self) -> Option<(&'static [Microinstruction], ExecResult)> {
+        // Is the processor ready to run an interrupt?
+        if !self.last_result.can_interrupt() {
+            None
+        } else if self.nmi_pending {
+            // Service a nonmaskable interrupt
+            self.nmi_pending = false;
+            self.state.iff1 = false;
+            self.state.advance_r();
+            Some((
+                &[jump::push_pc, |state| jump::jump_to(state, 0x66, 0)],
+                ExecResult::Int(5),
+            ))
+        } else if self.int_pending && self.state.iff1 {
+            self.int_pending = false;
+            match self.state.interrupt_mode {
+                InterruptMode::Instruction => {
+                    // Dispatch the instruction
+                    let injected = self.decoder.inject_opcode(self.interrupt_data);
+                    assert!(
+                        injected,
+                        "Failed to inject instruction {:02x}h",
+                        self.interrupt_data
+                    );
+                    Some((&[], ExecResult::Int(6)))
+                }
+                InterruptMode::Rst0038 => {
+                    let injected = self.decoder.inject_opcode(0xff);
+                    assert!(injected, "Failed to inject rst 0x38 instruction");
+                    Some((&[], ExecResult::Int(6)))
+                }
+                InterruptMode::Vectored => {
+                    // Put the address in WZ
+                    *self.state.wz_mut() = [self.interrupt_data, self.state.i()];
+                    Some((
+                        &[
+                            // Save the PC
+                            jump::push_pc,
+                            // Load the address of the interrupt handler
+                            |state| ExecResult::load16(state.wz()),
+                            // Finish the call to the interrupt handler
+                            |state| jump::jr_mm(state, 0),
+                        ],
+                        ExecResult::Int(7),
+                    ))
+                }
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Run the emulator
     pub fn run(&mut self) -> ExecResult {
         // If we're running microinstructions
-        if self.state.mpc < self.micros.len() {
+        let result = if self.state.mpc < self.micros.len() {
             let micro = self.micros[self.state.mpc];
             self.state.mpc += 1;
             micro(&mut self.state)
+        } else if let Some((micros, result)) = self.service_interrupt() {
+            self.micros = micros;
+            self.state.mpc = 0;
+            result
         } else {
             // Need to decode the next instruction
             self.micros = self.decoder.decode(&mut self.state);
             self.state.mpc = 1; // We'll run the [0] now.
             self.micros[0](&mut self.state)
-        }
+        };
+        self.last_result = result;
+        result
     }
 
     /// Run the emulator with a given memory, optionally disabling automatic handling of any
