@@ -35,6 +35,8 @@ pub(crate) struct Decoder {
 enum DecoderState {
     /// Fetch the opcode from memory
     FetchOpcode,
+    /// We got the opcode
+    Fetched,
     /// Do a table lookup on the fetched opcode
     Table,
     /// An instruction with two prefixes
@@ -62,6 +64,14 @@ impl Decoder {
         }
     }
 
+    /// Set up the decoder to fetch an opcode.
+    ///
+    /// Return the microinstructions to fetch an opcode
+    fn fetch(&mut self) -> &'static [Microinstruction] {
+        self.state = DecoderState::Fetched;
+        &[micro::fetch]
+    }
+
     /// Go back to the initial state
     fn reset(&mut self) {
         self.current = self.instruction_set;
@@ -80,13 +90,15 @@ impl Decoder {
             DecoderState::FetchOpcode => {
                 // Did nothing yet. We have to load the upcode
                 self.address = state.pc();
-                // Next state is to check the table
+                self.fetch()
+            }
+            DecoderState::Fetched => {
+                // We need this intermediate state to handle injecting opcodes
+                self.opcode = state.z();
                 self.state = DecoderState::Table;
-                // Fetch the opcode
-                &[micro::fetch]
+                self.decode(state)
             }
             DecoderState::Table => {
-                self.opcode = state.z();
                 if self.show_state {
                     state.print_debug(Some(self.opcode))
                 }
@@ -97,7 +109,7 @@ impl Decoder {
                         // It's a prefix, so we need to move to the inner table
                         // and fetch another opcode
                         self.current = table;
-                        &[micro::fetch]
+                        self.fetch()
                     }
                     Instruction::Instruction {
                         extra_bytes,
@@ -164,6 +176,20 @@ impl Decoder {
                 self.reset();
                 self.last_instruction
             }
+        }
+    }
+
+    /// Set an opcode to be executed
+    ///
+    /// Return `true` if the opcode was successfully injected, `false` if the decoder was already
+    /// decoding something
+    pub fn inject_opcode(&mut self, opcode: u8) -> bool {
+        if matches!(self.state, DecoderState::FetchOpcode) {
+            self.state = DecoderState::Table;
+            self.opcode = opcode;
+            true
+        } else {
+            false
         }
     }
 
