@@ -140,6 +140,8 @@ pub struct State {
     pub mpc: usize,
     /// Interruption mode of the processor
     pub interrupt_mode: InterruptMode,
+    /// The `MEMPTR` internal register
+    pub memptr: u16,
 }
 
 impl Default for State {
@@ -150,6 +152,7 @@ impl Default for State {
             iff2: false,
             mpc: 0,
             interrupt_mode: InterruptMode::Instruction,
+            memptr: 0,
         };
 
         state.set_register_16(Register16::AF, 0xffff);
@@ -522,24 +525,23 @@ impl State {
 
         fn print_registers(state: &State, registers: &[Register]) {
             for register in registers {
-                print!(",{}={:02x}h", register, state.get_register_8(*register));
+                print!("{}={:02x}h,", register, state.get_register_8(*register));
             }
         }
 
         fn print_registers_16(state: &State, registers: &[Register16]) {
             for register in registers {
-                print!(",{}={:04x}h", register, state.get_register_16(*register));
+                print!("{}={:04x}h,", register, state.get_register_16(*register));
             }
         }
 
         fn print_flag(state: &State, name: &str, flag: Flags) {
-            print!(",{}={}", name, state.get_flags().is_set(flag) as u8);
+            print!("{}={},", name, state.get_flags().is_set(flag) as u8);
         }
 
-        print!("pc={:04x}h", self.pc());
-        print_registers_16(self, &[SP]);
+        print_registers_16(self, &[PC, SP]);
         if let Some(opcode) = opcode {
-            print!(",op={:02x}h", opcode);
+            print!("op={:02x}h,", opcode);
         }
         print_registers_16(self, &[AF, BC, DE, HL, IX, IY]);
         print_registers(self, &[I, R]);
@@ -555,8 +557,7 @@ impl State {
         ] {
             print_flag(self, name, flag);
         }
-
-        println!();
+        println!("memptr={:04x}h", self.memptr);
     }
 }
 

@@ -66,7 +66,7 @@ macro_rules! ld_mm_rr {
     ( $reg:expr ) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::Two,
-            micros: &[|state| ld::ld_mm_rr(state, $reg), |_| ExecResult::Done(20)],
+            micros: &[|state| ld::ld_mm_rr(state, $reg), |_| ExecResult::Done(0)],
             printer: |state| println!("ld ({:x}h), {}", state.wz(), $reg),
         }
     };
@@ -78,7 +78,10 @@ macro_rules! ld_rr_mm {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::Two,
             micros: &[
-                |state| ExecResult::load16(state.wz()),
+                |state| {
+                    state.memptr = state.wz().wrapping_add(1);
+                    ExecResult::load16(state.wz())
+                },
                 |state| ld::ld_rr_rr(state, $reg, Register16::WZ, 20),
             ],
             printer: |state| println!("ld {}, ({:x}h)", $reg, state.wz()),
@@ -209,7 +212,17 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
     table[0x60] = in_r_c!(Register::H);
     table[0x68] = in_r_c!(Register::L);
     table[0x70] = in_r_c!(Register::Z); // Undocumented instruction
-    table[0x78] = in_r_c!(Register::A);
+    table[0x78] = Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| {
+                state.memptr = state.bc().wrapping_add(1);
+                ExecResult::input(state.bc())
+            },
+            |state| io::in_r_bc(state, Register::A, 12),
+        ],
+        printer: |_| println!("in a, (c)"),
+    };
     // out (c), r instructions
     table[0x41] = out_c_r!(Register::B);
     table[0x49] = out_c_r!(Register::C);
@@ -218,7 +231,20 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
     table[0x61] = out_c_r!(Register::H);
     table[0x69] = out_c_r!(Register::L);
     table[0x71] = out_c_r!(Register::Z); // Undocumented instruction
-    table[0x79] = out_c_r!(Register::A);
+    table[0x79] = Instruction::Instruction {
+        extra_bytes: ExtraBytes::None,
+        micros: &[
+            |state| {
+                state.memptr = state.bc().wrapping_add(1);
+                ExecResult::Out {
+                    port: state.bc(),
+                    data: state.a(),
+                }
+            },
+            |_| ExecResult::Done(12),
+        ],
+        printer: |_| println!("out (c), a"),
+    };
     // sbc hl, rr
     table[0x42] = sbc_hl_rr!(Register16::BC);
     table[0x52] = sbc_hl_rr!(Register16::DE);
@@ -276,7 +302,7 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
     table[0x4d] = one_byte_instruction!(
         "reti",
         &[
-            |state| ExecResult::load16(state.sp()),
+            |state| jump::load_sp_or_break(state, true, 0),
             |state| {
                 jump::ret(state, 0);
                 ExecResult::Reti(0)

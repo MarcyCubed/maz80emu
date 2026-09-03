@@ -26,9 +26,9 @@ pub fn exx(state: &mut State, cycles: u32) -> ExecResult {
 /// The offset is applied to DE and HL.
 ///
 /// This should be called after the memory transfer is done
-fn ldx_registers(state: &mut State, offset: u16) {
-    *state.de_mut() = state.de().wrapping_add(offset).to_le_bytes();
-    *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
+fn ldx_registers(state: &mut State, offset: i16) {
+    *state.de_mut() = state.de().wrapping_add_signed(offset).to_le_bytes();
+    *state.hl_mut() = state.hl().wrapping_add_signed(offset).to_le_bytes();
     let bc = state.bc().wrapping_sub(1);
     *state.bc_mut() = bc.to_le_bytes();
     let flags = state.get_flags() - (Flags::H | Flags::N | Flags::V | Flags::X | Flags::Y);
@@ -50,14 +50,18 @@ pub fn ldi_registers(state: &mut State, cycles: u32) -> ExecResult {
 ///
 /// Perform a loop for an instruction of length `length`, returning an [[ExecResult::Done]] with
 /// the right value if a loop was performed or not.
+///
+/// If the loop is performed, it'll set `state.memptr` using `memptr_update`.
 fn loop_if(
     state: &mut State,
     condition: bool,
     length: u16,
+    memptr_update: fn(&State) -> u16,
     cycles_loop: u32,
     cycles_no_loop: u32,
 ) -> ExecResult {
     if condition {
+        state.memptr = memptr_update(state);
         *state.pc_mut() = state.pc().wrapping_sub(length).to_le_bytes();
         ExecResult::Done(cycles_loop)
     } else {
@@ -66,19 +70,38 @@ fn loop_if(
     }
 }
 
+/// Updates the registers for a `LDIR` or `LDDR` instruction
+///
+/// This should be called after the memory transfer is done
+fn ldxr_registers(
+    state: &mut State,
+    offset: i16,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
+    ldx_registers(state, offset);
+    loop_if(
+        state,
+        state.bc() != 0,
+        2,
+        |state| state.pc().wrapping_sub(1),
+        cycles_loop,
+        cycles_no_loop,
+    )
+}
+
 /// Updates the registers for a `LDIR` instruction
 ///
 /// This should be called after the memory transfer is done
 pub fn ldir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    ldx_registers(state, 1);
-    loop_if(state, state.bc() != 0, 2, cycles_loop, cycles_no_loop)
+    ldxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for a `LDD` instruction
 ///
 /// This should be called after the memory transfer is done
 pub fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
-    ldx_registers(state, 0xffff); // offset == -1
+    ldx_registers(state, -1);
     ExecResult::Done(cycles)
 }
 
@@ -86,15 +109,15 @@ pub fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
 ///
 /// This should be called after the memory transfer is done
 pub fn lddr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    ldx_registers(state, 0xffff); // offset == -1
-    loop_if(state, state.bc() != 0, 2, cycles_loop, cycles_no_loop)
+    ldxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for a `CPX(L)` instruction after HL was already loaded.
-fn cpx_registers(state: &mut State, offset: u16) {
+fn cpx_registers(state: &mut State, offset: i16) {
+    state.memptr = state.memptr.wrapping_add_signed(offset);
     let bc = state.bc().wrapping_sub(1);
     *state.bc_mut() = bc.to_le_bytes();
-    *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
+    *state.hl_mut() = state.hl().wrapping_add_signed(offset).to_le_bytes();
 
     let (diff, flags) = math::sub_flags(state.a(), state.z(), false);
     // The strange source of X and Y
@@ -117,46 +140,53 @@ pub fn cpi_registers(state: &mut State, cycles: u32) -> ExecResult {
     ExecResult::Done(cycles)
 }
 
-/// Updates the registers for a `CPIR` instruction
-///
-/// This should be called after `(HL)` was already loaded
-pub fn cpir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    cpx_registers(state, 1);
-    loop_if(
-        state,
-        state.bc() != 0 && !state.get_flags().is_set(Flags::Z),
-        2,
-        cycles_loop,
-        cycles_no_loop,
-    )
-}
-
 /// Updates the registers for a `CPD` instruction
 ///
 /// This should be called after `(HL)` was already loaded
 pub fn cpd_registers(state: &mut State, cycles: u32) -> ExecResult {
-    cpx_registers(state, 0xffff); // Offset == -1
+    cpx_registers(state, -1);
     ExecResult::Done(cycles)
 }
 
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    cpx_registers(state, 0xffff); // Offset == -1
+pub fn cpxr_registers(
+    state: &mut State,
+    offset: i16,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
+    cpx_registers(state, offset);
     loop_if(
         state,
         state.bc() != 0 && !state.get_flags().is_set(Flags::Z),
         2,
+        |state| state.pc(),
         cycles_loop,
         cycles_no_loop,
     )
 }
 
+/// Updates the registers for a `CPIR` instruction
+///
+/// This should be called after `(HL)` was already loaded
+pub fn cpir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+    cpxr_registers(state, 1, cycles_loop, cycles_no_loop)
+}
+
+/// Updates the registers for a `CPIR` instruction
+///
+/// This should be called after `(HL)` was already loaded
+pub fn cpdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+    cpxr_registers(state, -1, cycles_loop, cycles_no_loop)
+}
+
 /// Updates the registers for a `INX(R)` instruction after input and storage were already done.
-fn inx_registers(state: &mut State, offset: u16) {
+fn inx_registers(state: &mut State, offset: i16) {
+    state.memptr = state.bc().wrapping_add_signed(offset);
     *state.b_mut() = state.b().wrapping_sub(1);
-    *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
+    *state.hl_mut() = state.hl().wrapping_add_signed(offset).to_le_bytes();
 
     state.update_flags((state.get_flags() - Flags::Z) | Flags::N | Flags::Z.set_if(state.b() == 0));
 }
@@ -173,29 +203,50 @@ pub fn ini_registers(state: &mut State, cycles: u32) -> ExecResult {
 ///
 /// This should be called after `(HL)` was already loaded
 pub fn ind_registers(state: &mut State, cycles: u32) -> ExecResult {
-    inx_registers(state, 0xffff); // offset is -1
+    inx_registers(state, -1);
     ExecResult::Done(cycles)
+}
+
+/// Updates the registers for an `INIR` or `INDR` instruction
+///
+/// This should be called after `(HL)` was already loaded
+pub fn inxr_registers(
+    state: &mut State,
+    offset: i16,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
+    inx_registers(state, offset);
+    loop_if(
+        state,
+        state.b() != 0,
+        2,
+        |state| state.memptr,
+        cycles_loop,
+        cycles_no_loop,
+    )
 }
 
 /// Updates the registers for an `INIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
 pub fn inir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    inx_registers(state, 1);
-    loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
+    inxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `INDR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
 pub fn indr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    inx_registers(state, 0xffff);
-    loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
+    inxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `OUTX(R)` instruction
-fn outx_registers(state: &mut State, offset: u16) {
-    *state.hl_mut() = state.hl().wrapping_add(offset).to_le_bytes();
+fn outx_registers(state: &mut State, offset: i16) {
+    *state.b_mut() = state.b().wrapping_sub(1);
+    state.memptr = state.bc().wrapping_add_signed(offset);
+
+    *state.hl_mut() = state.hl().wrapping_add_signed(offset).to_le_bytes();
     state.update_flags((state.get_flags() - Flags::Z) | Flags::N | Flags::Z.set_if(state.b() == 0));
 }
 
@@ -207,18 +258,34 @@ pub fn outi_registers(state: &mut State, cycles: u32) -> ExecResult {
 
 /// Updates the registers for an `OUTD` instruction
 pub fn outd_registers(state: &mut State, cycles: u32) -> ExecResult {
-    outx_registers(state, 0xffff); // offset is -1
+    outx_registers(state, -1);
     ExecResult::Done(cycles)
+}
+
+/// Updates the registers for an `OTIR` or `OTDR` instruction
+pub fn otxr_registers(
+    state: &mut State,
+    offset: i16,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
+    outx_registers(state, offset);
+    loop_if(
+        state,
+        state.b() != 0,
+        2,
+        |state| state.memptr,
+        cycles_loop,
+        cycles_no_loop,
+    )
 }
 
 /// Updates the registers for an `OTIR` instruction
 pub fn otir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    outx_registers(state, 1);
-    loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
+    otxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `OTDR` instruction
 pub fn otdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
-    outx_registers(state, 0xffff);
-    loop_if(state, state.b() != 0, 2, cycles_loop, cycles_no_loop)
+    otxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }

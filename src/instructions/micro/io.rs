@@ -4,6 +4,7 @@ use crate::state::{Flags, InterruptMode, Register, State};
 /// Write `A` to the port An
 pub fn out_n_a(state: &mut State) -> ExecResult {
     let a = state.a();
+    state.memptr = u16::from_le_bytes([state.z().wrapping_add(1), a]);
     let port = (a as u16) << 8 | state.z() as u16;
     ExecResult::Out { port, data: a }
 }

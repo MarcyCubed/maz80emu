@@ -30,7 +30,8 @@ pub fn ld_r_n(state: &mut State, register: Register, cycles: u32) -> ExecResult 
 }
 
 /// Store the value of the 16-bit register in the immediate memory address
-pub fn ld_mm_rr(state: &State, reg: Register16) -> ExecResult {
+pub fn ld_mm_rr(state: &mut State, reg: Register16) -> ExecResult {
+    state.memptr = state.wz().wrapping_add(1);
     let value = state.get_register_16_bytes(reg);
     ExecResult::Store16 {
         address: state.wz(),

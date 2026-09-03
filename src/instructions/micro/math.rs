@@ -95,7 +95,9 @@ fn sub_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
 
 /// Add two 16-bit registers together
 pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -> ExecResult {
-    let (result, flags) = add_16_flags(state.get_register_16(a), state.get_register_16(b), false);
+    let value = state.get_register_16(a);
+    state.memptr = value.wrapping_add(1);
+    let (result, flags) = add_16_flags(value, state.get_register_16(b), false);
     // Only use the flags C, H, X and Y
     let flags = flags & (Flags::C | Flags::H | Flags::X | Flags::Y);
     let old_flags = state.get_flags() & (Flags::S | Flags::Z | Flags::V);
@@ -132,40 +134,6 @@ pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
             | Flags::H.set_if((a ^ daa) & (1 << 4) != 0)
             | Flags::parity(daa),
     );
-
-    /*
-    let a = state.a();
-    let flags_0 = state.get_flags();
-    //let high_nybble = a >> 4;
-    let low_nybble = a & 0xf;
-    // What we'll add to / subtract form A
-    let mut diff = 0u8;
-    // Keep N
-    let mut flags = flags_0 & Flags::N;
-
-    if low_nybble > 0x9 || flags_0.is_set(Flags::H) {
-        diff += 0x6;
-    }
-    if flags_0.is_set(Flags::C) || a > 0x99 {
-        diff += 0x60;
-        flags |= Flags::C;
-    }
-    // Get the result
-    let a = if !flags_0.is_set(Flags::N) {
-        a.wrapping_add(diff)
-    } else {
-        a.wrapping_sub(diff)
-    };
-    // X, Y, S and Z set according to value
-    flags |= Flags::from_value(a);
-    if (flags_0.is_set(Flags::N) && flags_0.is_set(Flags::H) && low_nybble <= 0x5)
-        || (low_nybble > 0x9 && !flags_0.is_set(Flags::N))
-    {
-        flags |= Flags::H;
-    }
-    *state.a_mut() = a;
-    state.update_flags(flags);
-    */
     ExecResult::Done(cycles)
 }
 
@@ -303,6 +271,7 @@ pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 
 /// 16-bit subtraction with carry
 pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
+    state.memptr = state.hl().wrapping_add(1);
     let (hl, flags) = sub_16_flags(
         state.hl(),
         state.get_register_16(reg),
@@ -315,6 +284,7 @@ pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult 
 
 /// 16-bit addition with carry
 pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
+    state.memptr = state.hl().wrapping_add(1);
     let (hl, flags) = add_16_flags(
         state.hl(),
         state.get_register_16(reg),
@@ -337,6 +307,7 @@ pub fn neg(state: &mut State, cycles: u32) -> ExecResult {
 
 /// Perform a nybble rotate right between `Z` and the least significant nybble of `A`
 pub fn rrd(state: &mut State) {
+    state.memptr = state.hl().wrapping_add(1);
     let z = state.z();
     let a = state.a();
     *state.z_mut() = (z >> 4) | (a << 4);
@@ -348,6 +319,7 @@ pub fn rrd(state: &mut State) {
 
 /// Perform a nybble rotate left between `Z` and the least significant nybble of `A`
 pub fn rld(state: &mut State) {
+    state.memptr = state.hl().wrapping_add(1);
     let z = state.z();
     let a = state.a();
     *state.z_mut() = z << 4 | (a & 0x0f);

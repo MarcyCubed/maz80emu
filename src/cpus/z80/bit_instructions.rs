@@ -2,7 +2,7 @@
 
 use crate::instructions::micro::bit;
 use crate::instructions::{ExecResult, ExtraBytes, Instruction, InstructionSet, UNIMPLEMENTED};
-use crate::state::Register;
+use crate::state::{Flags, Register};
 
 /// Bit instruction without parameters
 macro_rules! simple_bit_instruction {
@@ -51,7 +51,7 @@ macro_rules! bit_select_instruction {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| $op(state, $reg, $bit, 0)],
-            printer: |_| println!("{} {} {}", $name, $bit, $reg),
+            printer: |_| println!("{} {}, {}", $name, $bit, $reg),
         }
     };
 }
@@ -79,9 +79,44 @@ macro_rules! bit_select_group {
                     },
                     |_| ExecResult::Done(1),
                 ],
-                printer: |_| println!("{} (hl)", $name),
+                printer: |_| println!("{} {}, (hl)", $name, $bit),
             },
             bit_select_instruction!($name, $op, $bit, Register::A),
+        ]
+    };
+}
+
+/// Define the instruction `bit` on specific bits for each register and memory
+macro_rules! bit_group {
+    ($bit:literal) => {
+        [
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::B),
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::C),
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::D),
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::E),
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::H),
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::L),
+            Instruction::Instruction {
+                extra_bytes: ExtraBytes::None,
+                micros: &[
+                    |state| ExecResult::load(state.hl()),
+                    |state| {
+                        bit::bit_r(state, Register::Z, $bit, 0);
+                        // Set the X and Y flags
+                        let flags = state.get_flags().reset(Flags::X | Flags::Y)
+                            // XY come from the high byte of memptr
+                            | Flags::xy(state.memptr.to_le_bytes()[1]);
+                        state.update_flags(flags);
+                        ExecResult::Store {
+                            address: state.hl(),
+                            data: state.z(),
+                        }
+                    },
+                    |_| ExecResult::Done(1),
+                ],
+                printer: |_| println!("bit {}, (hl)", $bit),
+            },
+            bit_select_instruction!("bit", bit::bit_r, $bit, Register::A),
         ]
     };
 }
@@ -138,46 +173,14 @@ pub static BIT_INSTRUCTIONS: InstructionSet = {
         0x38,
         bit_instruction_group!("srl", bit::srl_r),
     );
-    copy_8(
-        &mut instructions,
-        0x40,
-        bit_select_group!("bit", bit::bit_r, 0),
-    );
-    copy_8(
-        &mut instructions,
-        0x48,
-        bit_select_group!("bit", bit::bit_r, 1),
-    );
-    copy_8(
-        &mut instructions,
-        0x50,
-        bit_select_group!("bit", bit::bit_r, 2),
-    );
-    copy_8(
-        &mut instructions,
-        0x58,
-        bit_select_group!("bit", bit::bit_r, 3),
-    );
-    copy_8(
-        &mut instructions,
-        0x60,
-        bit_select_group!("bit", bit::bit_r, 4),
-    );
-    copy_8(
-        &mut instructions,
-        0x68,
-        bit_select_group!("bit", bit::bit_r, 5),
-    );
-    copy_8(
-        &mut instructions,
-        0x70,
-        bit_select_group!("bit", bit::bit_r, 6),
-    );
-    copy_8(
-        &mut instructions,
-        0x78,
-        bit_select_group!("bit", bit::bit_r, 7),
-    );
+    copy_8(&mut instructions, 0x40, bit_group!(0));
+    copy_8(&mut instructions, 0x48, bit_group!(1));
+    copy_8(&mut instructions, 0x50, bit_group!(2));
+    copy_8(&mut instructions, 0x58, bit_group!(3));
+    copy_8(&mut instructions, 0x60, bit_group!(4));
+    copy_8(&mut instructions, 0x68, bit_group!(5));
+    copy_8(&mut instructions, 0x70, bit_group!(6));
+    copy_8(&mut instructions, 0x78, bit_group!(7));
     copy_8(
         &mut instructions,
         0x80,

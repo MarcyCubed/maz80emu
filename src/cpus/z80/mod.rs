@@ -5,7 +5,7 @@ mod indexed;
 mod misc;
 mod two_prefix;
 
-use crate::instructions::micro::{bit, io, jump, ld, load_16_or_break, math, store_16, transfer};
+use crate::instructions::micro::{bit, io, jump, ld, math, store_16, transfer};
 use crate::instructions::{ExecResult, ExtraBytes, HALT, Instruction, NOP};
 use crate::simple_instruction;
 use crate::state::{Flags, Register, Register16};
@@ -42,7 +42,10 @@ macro_rules! ld_rr_mm {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::Two,
             micros: &[
-                |state| ExecResult::load16(state.wz()),
+                |state| {
+                    state.memptr = state.wz().wrapping_add(1);
+                    ExecResult::load16(state.wz())
+                },
                 |state| ld::ld_rr_rr(state, $reg, Register16::WZ, 0),
             ],
             printer: |state| println!("ld {}, ({:x}h)", $reg, state.wz()),
@@ -74,6 +77,28 @@ macro_rules! ld_pp_r {
                 |_| ExecResult::Done(0),
             ],
             printer: |_| println!("ld ({}), {}", $pointer, $reg),
+        }
+    };
+}
+
+/// Create a `ld (pp), a` instruction that affects `MEMPTR`
+macro_rules! ld_pp_a_memptr {
+    ( $pointer:expr ) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: &[
+                |state| {
+                    let mut memptr = state
+                        .get_register_16($pointer)
+                        .wrapping_add(1)
+                        .to_le_bytes();
+                    memptr[1] = state.a();
+                    state.memptr = u16::from_le_bytes(memptr);
+                    ld::ld_pp_r(state, $pointer, Register::A)
+                },
+                |_| ExecResult::Done(0),
+            ],
+            printer: |_| println!("ld ({}), a", $pointer),
         }
     };
 }
@@ -150,6 +175,24 @@ macro_rules! ld_r_pp {
                 |state| ld::ld_r_r(state, $reg, Register::Z, 0),
             ],
             printer: |_| println!("ld {}, ({})", $reg, $pointer),
+        }
+    };
+}
+
+/// Create a ld a, (pp) instruction that affects `MEMPTR`
+macro_rules! ld_a_pp_memptr {
+    ( $pointer:expr ) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: &[
+                |state| {
+                    let address = state.get_register_16($pointer);
+                    state.memptr = address.wrapping_add(1);
+                    ExecResult::load(address)
+                },
+                |state| ld::ld_r_r(state, Register::A, Register::Z, 0),
+            ],
+            printer: |_| println!("ld a, ({})", $pointer),
         }
     };
 }
@@ -274,12 +317,34 @@ macro_rules! rst {
             extra_bytes: ExtraBytes::None,
             micros: &[
                 |state| jump::push(state, Register16::PC),
-                |state| jump::jp(state, $addr, 1),
+                |state| {
+                    state.memptr = $addr;
+                    jump::jp(state, $addr, 1)
+                },
             ],
             printer: |_| println!("rst {:x}h", $addr),
         }
     };
 }
+
+/// Create an `ex (sp), rr` instruction
+macro_rules! ex_sp_rr {
+    ($reg:expr) => {
+        Instruction::Instruction {
+            extra_bytes: ExtraBytes::None,
+            micros: &[
+                |state| ExecResult::load16(state.sp()),
+                |state| store_16(state.sp(), state.get_register_16($reg)),
+                |state| {
+                    state.memptr = state.wz();
+                    ld::ld_rr_rr(state, $reg, Register16::WZ, 3)
+                },
+            ],
+            printer: |_| println!("ex (sp), {}", $reg),
+        }
+    };
+}
+pub(crate) use ex_sp_rr;
 
 pub static Z80: [Instruction; 256] = [
     // Instruction 0x00: nop
@@ -287,7 +352,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x01: ld BC, nn
     ld_rr_nn!(Register16::BC),
     // Instruction 0x02: ld (bc), a
-    ld_pp_r!(Register16::BC, Register::A),
+    ld_pp_a_memptr!(Register16::BC),
     // Instruction 0x03: inc bc
     inc_rr!(Register16::BC),
     // Instruction 0x04: inc b
@@ -303,7 +368,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x09: add hl, bc
     add_rr_rr!(Register16::HL, Register16::BC),
     // Instruction 0x0a: ld a, (bc)
-    ld_r_pp!(Register::A, Register16::BC),
+    ld_a_pp_memptr!(Register16::BC),
     // Instruction 0x0b: dec bc
     dec_rr!(Register16::BC),
     // Instruction 0x0c: inc c
@@ -323,7 +388,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x11: ld de, nn
     ld_rr_nn!(Register16::DE),
     // Instruction 0x12: ld (de), a
-    ld_pp_r!(Register16::DE, Register::A),
+    ld_pp_a_memptr!(Register16::DE),
     // Instruction 0x13: inc de
     inc_rr!(Register16::DE),
     // Instruction 0x14: inc d
@@ -337,13 +402,13 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x18: jr d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| jump::jr_d(state, 5)],
+        micros: &[|state| jump::jr_cc_d(state, true, 5, 5)],
         printer: |state| println!("jr {}", state.z() as i8),
     },
     // Instruction 0x19: add hl, de
     add_rr_rr!(Register16::HL, Register16::DE),
     // Instruction 0x1a: ld a, (de)
-    ld_r_pp!(Register::A, Register16::DE),
+    ld_a_pp_memptr!(Register16::DE),
     // Instruction 0x1b: dec de
     dec_rr!(Register16::DE),
     // Instruction 0x1c: inc e
@@ -357,7 +422,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x20: jr nz, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| jump::jr_nz_d(state, 5, 0)],
+        micros: &[|state| jump::jr_cc_d(state, !state.get_flags().is_set(Flags::Z), 5, 0)],
         printer: |state| println!(" jr nz,{}", state.z() as i8),
     },
     // Instruction 0x21: ld hl, nn
@@ -377,7 +442,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x28: jr z, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| jump::jr_z_d(state, 5, 0)],
+        micros: &[|state| jump::jr_cc_d(state, state.get_flags().is_set(Flags::Z), 5, 0)],
         printer: |state| println!("jr z, {}", state.z() as i8),
     },
     // Instruction 0x29: add hl, hl
@@ -397,7 +462,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x30: jr nc, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| jump::jr_nc_d(state, 5, 0)],
+        micros: &[|state| jump::jr_cc_d(state, !state.get_flags().is_set(Flags::C), 5, 0)],
         printer: |state| println!("jr nc, {}", state.z() as i8),
     },
     // Instruction 0x31: ld sp, nn
@@ -406,7 +471,12 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[
-            |state| ld::ld_mm_r(state, Register::A),
+            |state| {
+                let mut memptr = state.wz().wrapping_add(1).to_le_bytes();
+                memptr[1] = state.a();
+                state.memptr = u16::from_le_bytes(memptr);
+                ld::ld_mm_r(state, Register::A)
+            },
             |_| ExecResult::Done(0),
         ],
         printer: |state| println!("ld ({:x}h) a", state.wz()),
@@ -447,7 +517,7 @@ pub static Z80: [Instruction; 256] = [
     // Instruction 0x38: jr c, d
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
-        micros: &[|state| jump::jr_c_d(state, 5, 0)],
+        micros: &[|state| jump::jr_cc_d(state, state.get_flags().is_set(Flags::C), 5, 0)],
         printer: |state| println!("jr c, {}", state.z() as i8),
     },
     // Instruction 0x39: add hl, sp
@@ -456,7 +526,11 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[
-            |state| ExecResult::load(state.wz()),
+            |state| {
+                let address = state.wz();
+                state.memptr = address.wrapping_add(1);
+                ExecResult::load(address)
+            },
             |state| ld::ld_r_r(state, Register::A, Register::Z, 0),
         ],
         printer: |state| println!("ld a, ({:x}h)", state.wz()),
@@ -787,7 +861,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), !state.get_flags().is_set(Flags::Z), 1),
+            |state| jump::load_sp_or_break(state, !state.get_flags().is_set(Flags::Z), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret nz"),
@@ -829,7 +903,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), state.get_flags().is_set(Flags::Z), 1),
+            |state| jump::load_sp_or_break(state, state.get_flags().is_set(Flags::Z), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret z"),
@@ -865,7 +939,10 @@ pub static Z80: [Instruction; 256] = [
         extra_bytes: ExtraBytes::Two,
         micros: &[
             |state| jump::push(state, Register16::PC),
-            |state| jump::jr_mm(state, 1),
+            |state| {
+                state.memptr = state.wz();
+                jump::jr_mm(state, 1)
+            },
         ],
         printer: |state| println!("call {:x}h", state.wz()),
     },
@@ -881,7 +958,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), !state.get_flags().is_set(Flags::C), 1),
+            |state| jump::load_sp_or_break(state, !state.get_flags().is_set(Flags::C), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret nc"),
@@ -923,7 +1000,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), state.get_flags().is_set(Flags::C), 1),
+            |state| jump::load_sp_or_break(state, state.get_flags().is_set(Flags::C), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret c"),
@@ -940,7 +1017,11 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::One,
         micros: &[
-            |state| ExecResult::input((state.a() as u16) << 8 | state.z() as u16),
+            |state| {
+                let port = (state.a() as u16) << 8 | (state.z() as u16);
+                state.memptr = port.wrapping_add(1);
+                ExecResult::input(port)
+            },
             |state| ld::ld_r_r(state, Register::A, Register::Z, 0),
         ],
         printer: |state| println!("in a, ({:x}h)", state.z()),
@@ -968,7 +1049,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), !state.get_flags().is_set(Flags::P), 1),
+            |state| jump::load_sp_or_break(state, !state.get_flags().is_set(Flags::P), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret po"),
@@ -982,15 +1063,7 @@ pub static Z80: [Instruction; 256] = [
         printer: |state| println!("jp po, {:x}h", state.wz()),
     },
     // Instruction 0xe3: ex (sp), hl
-    Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[
-            |state| ExecResult::load16(state.sp()),
-            |state| store_16(state.sp(), state.hl()),
-            |state| ld::ld_rr_rr(state, Register16::HL, Register16::WZ, 3),
-        ],
-        printer: |_| println!("ex (sp), hl"),
-    },
+    ex_sp_rr!(Register16::HL),
     // Instruction 0xe4: call po, nn
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
@@ -1014,7 +1087,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), state.get_flags().is_set(Flags::P), 1),
+            |state| jump::load_sp_or_break(state, state.get_flags().is_set(Flags::P), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret pe"),
@@ -1061,7 +1134,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), !state.get_flags().is_set(Flags::S), 1),
+            |state| jump::load_sp_or_break(state, !state.get_flags().is_set(Flags::S), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret p"),
@@ -1103,7 +1176,7 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[
-            |state| load_16_or_break(state, state.sp(), state.get_flags().is_set(Flags::S), 1),
+            |state| jump::load_sp_or_break(state, state.get_flags().is_set(Flags::S), 1),
             |state| jump::ret(state, 1),
         ],
         printer: |_| println!("ret m"),

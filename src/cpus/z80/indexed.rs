@@ -1,8 +1,8 @@
 //! IX and IY instructions
 
 use crate::cpus::z80::{
-    adc_r, add_r, add_rr_rr, and_r, cp_r, dec_r, dec_rr, inc_r, inc_rr, ld_mm_rr, ld_r_n, ld_r_r,
-    ld_rr_mm, ld_rr_nn, math_r, or_r, pop_rr, push_rr, sbc_r, sub_r, two_prefix, xor_r,
+    adc_r, add_r, add_rr_rr, and_r, cp_r, dec_r, dec_rr, ex_sp_rr, inc_r, inc_rr, ld_mm_rr, ld_r_n,
+    ld_r_r, ld_rr_mm, ld_rr_nn, math_r, or_r, pop_rr, push_rr, sbc_r, sub_r, two_prefix, xor_r,
 };
 use crate::instructions::micro::{jump, ld, math, store_16};
 use crate::instructions::{
@@ -21,20 +21,28 @@ pub(super) trait Index {
     /// The 8-bit register corresponding to the high byte of the register
     const HIGH: Register;
 
-    /// Get the value of the register + displacement in register `W`
-    fn get_offset_w(state: &State) -> u16 {
+    /// Get the value of the register + displacement in register `W`.
+    ///
+    /// This value is also stored in MEMPTR.
+    fn get_offset_w(state: &mut State) -> u16 {
         let d = state.w() as i8 as i16 as u16;
 
         let address = state.get_register_16(Self::REGISTER);
-        address.wrapping_add(d)
+        let address = address.wrapping_add(d);
+        state.memptr = address;
+        address
     }
 
     /// Get the value of the register + displacement in register `Z`
-    fn get_offset_z(state: &State) -> u16 {
+    ///
+    /// This value is also stored in MEMPTR.
+    fn get_offset_z(state: &mut State) -> u16 {
         let d = state.z() as i8 as i16 as u16;
 
         let address = state.get_register_16(Self::REGISTER);
-        address.wrapping_add(d)
+        let address = address.wrapping_add(d);
+        state.memptr = address;
+        address
     }
 }
 
@@ -67,7 +75,10 @@ macro_rules! inc_dec_izd {
                     *state.w_mut() = state.z();
                     ExecResult::load(I::get_offset_w(state))
                 },
-                |state| $op(state, I::get_offset_w(state)),
+                |state| {
+                    let address = I::get_offset_w(state);
+                    $op(state, address)
+                },
                 |_| ExecResult::Done(6),
             ],
         }
@@ -317,15 +328,7 @@ const fn make_indexed_instructions<I: Index>(
     // pop i?
     instructions[0xe1] = pop_rr!(I::REGISTER);
     // ex (sp), i?
-    instructions[0xe3] = Instruction::Instruction {
-        extra_bytes: ExtraBytes::None,
-        micros: &[
-            |state| ExecResult::load16(state.sp()),
-            |state| store_16(state.sp(), state.get_register_16(I::REGISTER)),
-            |state| ld::ld_rr_rr(state, I::REGISTER, Register16::WZ, 3),
-        ],
-        printer: |_| println!("ex (sp), {}", I::REGISTER),
-    };
+    instructions[0xe3] = ex_sp_rr!(I::REGISTER);
     // push i?
     instructions[0xe5] = push_rr!(I::REGISTER);
     // jp (i?)

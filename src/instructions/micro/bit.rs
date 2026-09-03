@@ -44,9 +44,9 @@ pub fn rla(state: &mut State, cycles: u32) -> ExecResult {
     let a = acc << 1;
     let a = a | state.get_flags().is_set(Flags::C) as u8;
     // Flags S, Z and V are unchanged
-    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
-    // New C flag is the old lsb
-    let flags = flags | new_c_flag;
+    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V)
+        | new_c_flag // New C flag is the old MSB
+        | Flags::xy(a);
 
     *state.a_mut() = a;
     state.update_flags(flags);
@@ -62,9 +62,9 @@ pub fn rra(state: &mut State, cycles: u32) -> ExecResult {
     let a = acc >> 1;
     let a = a | ((state.get_flags().is_set(Flags::C) as u8) << 7);
     // Flags S, Z and V are unchanged
-    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V);
-    // New C flag is the old MSB
-    let flags = flags | new_c_flag;
+    let flags = state.get_flags().select(Flags::S | Flags::Z | Flags::V)
+        |new_c_flag // New C flag is the old MSB
+        |Flags::xy(a);
 
     *state.a_mut() = a;
     state.update_flags(flags);

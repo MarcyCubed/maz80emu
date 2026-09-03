@@ -67,17 +67,6 @@ pub fn load_word_parameter(state: &mut State) -> ExecResult {
     ExecResult::load16(pc)
 }
 
-/// If the condition is true, load a 16 bit value to `WZ`. Otherwise, abort running the instruction
-/// and return [[ExecResult::Done]],
-pub fn load_16_or_break(state: &mut State, address: u16, cond: bool, cycles: u32) -> ExecResult {
-    if cond {
-        ExecResult::load16(address)
-    } else {
-        state.skip_instruction();
-        ExecResult::Done(cycles)
-    }
-}
-
 /// Microinstruction component to write a 16-bit value to a memory location
 pub fn store_16(address: u16, data: u16) -> ExecResult {
     ExecResult::Store16 {
