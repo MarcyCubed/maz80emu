@@ -938,11 +938,8 @@ pub static Z80: [Instruction; 256] = [
     Instruction::Instruction {
         extra_bytes: ExtraBytes::Two,
         micros: &[
-            |state| jump::push(state, Register16::PC),
-            |state| {
-                state.memptr = state.wz();
-                jump::jr_mm(state, 1)
-            },
+            jump::push_pc,                 // Push the PC to the stack
+            |state| jump::jr_mm(state, 1), // Jump to the address in WZ
         ],
         printer: |state| println!("call {:x}h", state.wz()),
     },

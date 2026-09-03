@@ -90,23 +90,33 @@ pub fn jp_cc_nn(state: &mut State, cond: bool, cycles: u32) -> ExecResult {
 pub fn push_pc_or_break(state: &mut State, cond: bool, cycles: u32) -> ExecResult {
     state.memptr = state.wz();
     if cond {
-        let sp = state.sp().wrapping_sub(2);
-        *state.sp_mut() = sp.to_le_bytes();
-        ExecResult::Store16 {
-            address: sp,
-            data: state.pc_bytes(),
-        }
+        push_pc(state)
     } else {
         state.skip_instruction();
         ExecResult::Done(cycles)
     }
 }
 
-/// Jump to the immediate value
-pub fn jr_mm(state: &mut State, cycles: u32) -> ExecResult {
-    *state.pc_mut() = state.wz_bytes();
-    state.memptr = state.wz();
+/// Push `PC` into the stack
+pub fn push_pc(state: &mut State) -> ExecResult {
+    let sp = state.sp().wrapping_sub(2);
+    *state.sp_mut() = sp.to_le_bytes();
+    ExecResult::Store16 {
+        address: sp,
+        data: state.pc_bytes(),
+    }
+}
+
+/// Jump to an address, setting `MEMPTR`
+pub fn jump_to(state: &mut State, address: u16, cycles: u32) -> ExecResult {
+    *state.pc_mut() = address.to_le_bytes();
+    state.memptr = address;
     ExecResult::Done(cycles)
+}
+
+/// Jump to the value in `WZ`
+pub fn jr_mm(state: &mut State, cycles: u32) -> ExecResult {
+    jump_to(state, state.wz(), cycles)
 }
 
 /// Jump to the address
