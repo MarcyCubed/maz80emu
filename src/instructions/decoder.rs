@@ -144,10 +144,13 @@ impl Decoder {
             }
             DecoderState::TwoPrefix(table) => {
                 // Reverse Z and W , so the instruction is in Z and the displacement in W
-                let opcode = state.w();
+                self.opcode = state.w();
+                if self.show_state {
+                    state.print_debug(Some(self.opcode))
+                }
                 *state.w_mut() = state.z();
-                *state.z_mut() = opcode;
-                let instruction = table[opcode as usize];
+                *state.z_mut() = self.opcode;
+                let instruction = table[self.opcode as usize];
                 self.last_instruction = instruction.micros;
                 self.last_printer = instruction.printer;
                 self.state = DecoderState::Decoded;
