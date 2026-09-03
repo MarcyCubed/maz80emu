@@ -172,7 +172,10 @@ pub const NOP: Instruction = Instruction::Instruction {
 /// HALT instruction
 pub const HALT: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
-    micros: &[|_| ExecResult::Halt],
+    micros: &[|state| {
+        *state.pc_mut() = state.pc().wrapping_sub(1).to_le_bytes();
+        ExecResult::Halt
+    }],
     printer: |_| println!("halt"),
 };
 
