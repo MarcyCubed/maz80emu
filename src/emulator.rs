@@ -1,5 +1,6 @@
 //! The core of the emulator
 
+use crate::cpus::z80::Z80;
 use crate::instructions::decoder::Decoder;
 use crate::instructions::micro::Microinstruction;
 use crate::instructions::{ExecResult, InstructionSet};
@@ -24,6 +25,11 @@ impl Emulator {
             decoder: Decoder::new(instruction_set),
             micros: &[],
         }
+    }
+
+    /// Create a Z80 emulator
+    pub fn new_z80() -> Self {
+        Self::new_with_instruction_set(&Z80)
     }
 
     /// Runs the emulator

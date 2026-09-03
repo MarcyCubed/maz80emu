@@ -1,4 +1,3 @@
-use maz80emu::cpus::z80::Z80;
 use maz80emu::emulator::Emulator;
 use maz80emu::instructions::ExecResult;
 use maz80emu::state::Register16;
@@ -38,7 +37,7 @@ impl CpmRunner {
         let mut runner = Self {
             instruction_counter: 0,
             memory,
-            emulator: Emulator::new_with_instruction_set(&Z80),
+            emulator: Emulator::new_z80(),
         };
         // Point PC to the start of the program
         runner.emulator.state.set_register_16(Register16::PC, 0x100);
