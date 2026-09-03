@@ -4,10 +4,8 @@
 
 use crate::cpus::z80::indexed::{IX, IY, Index};
 use crate::instructions::micro::bit;
-use crate::instructions::{
-    ExecResult, TwoPrefixInstruction, TwoPrefixTable,
-};
-use crate::state::Register;
+use crate::instructions::{ExecResult, TwoPrefixInstruction, TwoPrefixTable};
+use crate::state::{Flags, Register};
 
 macro_rules! load_store_instruction {
     ($name:expr, $op: expr, $reg:expr) => {
@@ -61,8 +59,12 @@ macro_rules! bit_instruction {
                 |state| ExecResult::load(I::get_offset_w(state)),
                 |state| {
                     bit::bit_r(state, Register::Z, $bit, 0);
+                    let address: u16 = I::get_offset_w(state);
+                    let addr_msb = address.to_le_bytes()[1];
+                    let flags = state.get_flags().reset(Flags::X | Flags::Y) | Flags::xy(addr_msb);
+                    state.update_flags(flags);
                     ExecResult::Store {
-                        address: I::get_offset_w(state),
+                        address,
                         data: state.z(),
                     }
                 },
