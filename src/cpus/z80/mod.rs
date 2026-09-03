@@ -1196,7 +1196,7 @@ pub static Z80: [Instruction; 256] = [
     simple_instruction!("ei", |state| {
         state.iff1 = true;
         state.iff2 = true;
-        ExecResult::Done(0)
+        ExecResult::Ei(0)
     }),
     // Instruction 0xfc: call m, nn
     Instruction::Instruction {

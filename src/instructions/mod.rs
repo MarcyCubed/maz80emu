@@ -76,10 +76,18 @@ pub enum ExecResult {
     ///
     /// The processor stopped running until it receives an interruption
     Halt,
-    /// Executed a RETI instruction
+    /// Executed a `RETI` instruction
     ///
-    /// Like [[Done]], the parameter is the number of T cycles the instruction takes.
+    /// Like [[Done]], the parameter is the number of T states the instruction takes.
     Reti(u32),
+    /// Executed an `EI` instruction
+    ///
+    /// The number is the amount of clock cycles it took to run the instruction.
+    Ei(u32),
+    /// Started to handle an interrupt
+    ///
+    /// The number is the amount of clock cycles it took.
+    Int(u32),
 }
 
 impl ExecResult {
@@ -103,15 +111,31 @@ impl ExecResult {
         Self::In { port }
     }
 
-    /// The number of T cycles the operation takes
-    pub fn t_cycles(self) -> u32 {
+    /// The number of T states the operation takes
+    pub fn t_states(self) -> u32 {
         match self {
-            ExecResult::Done(n) | ExecResult::Reti(n) => n,
+            ExecResult::Done(n) | ExecResult::Reti(n) | ExecResult::Ei(n) | ExecResult::Int(n) => n,
             ExecResult::Fetch { .. } | ExecResult::In { .. } | ExecResult::Out { .. } => 4,
             ExecResult::Load { .. } | ExecResult::Store { .. } => 3,
             ExecResult::Load16 { .. } | ExecResult::Store16 { .. } => 6,
             ExecResult::Halt => 0,
         }
+    }
+
+    /// Test if the result marks the end of an instruction
+    pub fn is_finished(self) -> bool {
+        matches!(
+            self,
+            ExecResult::Done(_) | ExecResult::Reti(_) | ExecResult::Ei(_) | ExecResult::Halt
+        )
+    }
+
+    /// Test if the result allows interruptions to be accepted
+    pub fn can_interrupt(self) -> bool {
+        matches!(
+            self,
+            ExecResult::Done(_) | ExecResult::Reti(_) | ExecResult::Halt
+        )
     }
 }
 
