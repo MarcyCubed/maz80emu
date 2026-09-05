@@ -4,6 +4,7 @@ use crate::cpus::z80::Z80;
 use crate::instructions::decoder::Decoder;
 use crate::instructions::micro::{Microinstruction, jump};
 use crate::instructions::{ExecResult, InstructionSet};
+use crate::memory::Memory;
 use crate::state::{InterruptMode, State};
 
 /// The Z80 emulator
@@ -146,11 +147,10 @@ impl Emulator {
     /// If the request is a memory access and its address is within the memory's bounds, the
     /// requested action will be performed and the function will return `true`.
     /// Otherwise, nothing will be done and `false` will be returned instead.
-    pub fn access_memory(&mut self, request: ExecResult, memory: &mut [u8]) -> bool {
+    pub fn access_memory(&mut self, request: ExecResult, memory: &mut impl Memory) -> bool {
         // Get the address for the memory access if it's valid
-        fn get_address(memory: &[u8], address: u16) -> Option<usize> {
-            let address = address as usize;
-            if address < memory.len() {
+        fn get_address(memory: &impl Memory, address: u16) -> Option<u16> {
+            if memory.contains(address) {
                 Some(address)
             } else {
                 None
@@ -158,48 +158,39 @@ impl Emulator {
         }
 
         // Get the addresses for the first and second index
-        fn get_address_16(memory: &[u8], address: u16) -> Option<(usize, usize)> {
+        fn get_address_16(memory: &impl Memory, address: u16) -> Option<(u16, u16)> {
             let address_0 = get_address(memory, address)?;
             let address_1 = get_address(memory, address.wrapping_add(1))?;
             Some((address_0, address_1))
         }
 
-        match request {
-            ExecResult::Fetch { address } | ExecResult::Load { address } => {
-                if let Some(address) = get_address(memory, address) {
-                    self.send_byte(memory[address]);
-                    true
-                } else {
-                    false
+        fn try_access_memory(
+            emulator: &mut Emulator,
+            request: ExecResult,
+            memory: &mut impl Memory,
+        ) -> Option<()> {
+            match request {
+                ExecResult::Fetch { address } | ExecResult::Load { address } => {
+                    emulator.send_byte(memory.load(get_address(memory, address)?));
                 }
-            }
-            ExecResult::Load16 { address } => {
-                if let Some((address_0, address_1)) = get_address_16(memory, address) {
-                    self.send_word([memory[address_0], memory[address_1]]);
-                    true
-                } else {
-                    false
+                ExecResult::Load16 { address } => {
+                    let (address_0, address_1) = get_address_16(memory, address)?;
+                    emulator.send_word([memory.load(address_0), memory.load(address_1)]);
                 }
-            }
-            ExecResult::Store { address, data } => {
-                if let Some(address) = get_address(memory, address) {
-                    memory[address] = data;
-                    true
-                } else {
-                    false
+                ExecResult::Store { address, data } => {
+                    memory.store(get_address(memory, address)?, data);
                 }
-            }
-            ExecResult::Store16 { address, data } => {
-                if let Some((address_0, address_1)) = get_address_16(memory, address) {
-                    memory[address_0] = data[0];
-                    memory[address_1] = data[1];
-                    true
-                } else {
-                    false
+                ExecResult::Store16 { address, data } => {
+                    let (address_0, address_1) = get_address_16(memory, address)?;
+                    memory.store(address_0, data[0]);
+                    memory.store(address_1, data[1]);
                 }
+                _ => return None,
             }
-            _ => false,
+            Some(())
         }
+
+        try_access_memory(self, request, memory).is_some()
     }
 
     /// Run the emulator with a given memory, optionally disabling automatic handling of any
@@ -210,7 +201,7 @@ impl Emulator {
     /// Otherwise, the load or store request will be returned as in [[Emulator::run]].
     pub fn run_with_memory_trap<F: Fn(ExecResult) -> bool>(
         &mut self,
-        memory: &mut [u8],
+        memory: &mut impl Memory,
         trap: F,
     ) -> ExecResult {
         loop {
@@ -230,7 +221,7 @@ impl Emulator {
     ///
     /// Handle memory access for the emulator. If the requested address is out of bounds, the
     /// load or store request will be returned as in [[Emulator::run]].
-    pub fn run_with_memory(&mut self, memory: &mut [u8]) -> ExecResult {
+    pub fn run_with_memory(&mut self, memory: &mut impl Memory) -> ExecResult {
         self.run_with_memory_trap(memory, |_| false)
     }
 
