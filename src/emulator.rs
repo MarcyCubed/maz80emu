@@ -56,8 +56,8 @@ impl Emulator {
     /// Otherwise, return `None` if there is no interrupt to service, if they are disabled or if the
     /// processor is busy processing.
     fn service_interrupt(&mut self) -> Option<(&'static [Microinstruction], ExecResult)> {
-        // Is the processor ready to run an interrupt?
-        if !self.last_result.can_interrupt() {
+        // Check if the processor is in the middle of an instruction
+        if !self.last_result.is_finished() {
             None
         } else if self.nmi_pending {
             // Service a nonmaskable interrupt
@@ -68,6 +68,8 @@ impl Emulator {
                 &[jump::push_pc, |state| jump::jump_to(state, 0x66, 0)],
                 ExecResult::Int(5),
             ))
+        } else if !self.last_result.can_interrupt() {
+            None
         } else if self.int_pending && self.state.iff1 {
             self.int_pending = false;
             match self.state.interrupt_mode {
@@ -126,6 +128,17 @@ impl Emulator {
         };
         self.last_result = result;
         result
+    }
+
+    /// Interrupt request
+    pub fn interrupt(&mut self, data: u8) {
+        self.int_pending = true;
+        self.interrupt_data = data;
+    }
+
+    /// Non-masking Interrupt request
+    pub fn non_masking_interrupt(&mut self) {
+        self.nmi_pending = true;
     }
 
     /// If the [ExecResult] is related to loading or storing data in the memory, try to perform it.
@@ -205,8 +218,10 @@ impl Emulator {
             if trap(result) {
                 return result;
             }
-            if !self.access_memory(result, memory) {
-                return result;
+            match result {
+                ExecResult::Done(_) => {}
+                result if self.access_memory(result, memory) => {}
+                _ => return result,
             }
         }
     }
@@ -247,5 +262,239 @@ impl Emulator {
     /// Don't show the state before each instruction
     pub fn disable_state_dump(&mut self) {
         self.decoder.disable_state_dump();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::Register16;
+    use std::assert_matches;
+
+    /// Make a program to test interrupts
+    ///
+    ///  We can track where we are in the program
+    fn make_program() -> [u8; 256] {
+        [
+            0xd3, 0x01, // 00h: out (1), a
+            // Put SP within the memory
+            0x31, 0xff, 0x00, // 02h: ld sp, 0xff
+            0xfb, // 05h: ei
+            0xd3, 0x02, // 06h: out (2), a
+            0xd3, 0x03, // 08h: out (3), a
+            // Block with interrupts disabled
+            0xf3, // 0ah: di
+            0xd3, 0x04, // 0bh: out (4), a
+            0xfb, // 0dh: ei
+            // An out immediately after ei
+            0xd3, 0x05, // 0eh: out (5), a
+            0xd3, 0x06, // 10h: out (6), a
+            0x76, // 12h: halt
+            0x00, 0x00, 0x00, 0x00, 0x00, // 13h: nop *  5
+            // an interruption handler at 18h
+            0xf3, // 18h: di
+            0xd3, 0x07, // 19h: out (7), a
+            0xfb, // 1bh: ei
+            0xed, 0x4d, // 1ch: reti
+            0xd3, 0x06, // 1eh: out (6), a
+            // an interruption handler with 2 outs at 20h
+            0xf3, // 20h: di
+            0xd3, 0x20, // 21h: out (20), a
+            0xd3, 0x21, // 23h: out (21), a
+            0xfb, // 25h: ei
+            0xed, 0x4d, // 26h: reti
+            // A different interruption handler at 28h
+            0xf3, // 28h: di
+            0x00, // 29h: nop
+            0xd3, 0x28, // 2ah: out (0x28), a
+            0x00, // 2ch: nop
+            0xfb, // 2dh: ei
+            0xed, 0x4d, // 2eh: reti
+            // Filler
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 30h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 38h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 40h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 48h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 50h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 58h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 60h: nop * 6
+            // NMI handler
+            0xd3, 0x66, // 66h: out (66h), a
+            0xed, 0x45, // 68h: retn
+            // Should be unreachable
+            0xd3, 0xbb, // 6ah: out (bbh), a
+            0x76, // 6ch: halt
+            0x00, 0x00, 0x00, // 6dh: nop
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 70h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 78h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 80h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 88h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 90h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 98h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // a0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // a8h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // b0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // b8h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // c0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // c8h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // d0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // d8h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // e0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // e8h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // f0h: nop *  8
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // f8h: nop *  8
+        ]
+    }
+
+    macro_rules! assert_port {
+        ($number:literal, $result:expr, $text: literal) => {
+            assert_matches!($result, ExecResult::Out { .. });
+            if let ExecResult::Out { port, .. } = $result {
+                assert_eq!($number, port & 0xff, $text);
+            }
+        };
+    }
+
+    #[test]
+    fn check_if_interrupts_trigger_when_they_should() {
+        let mut emulator = Emulator::new_z80();
+        let mut program = make_program();
+        // Start running
+        let result = emulator.run();
+        // It should start by fetching an instruction, otherwise the emulator isn't working the same
+        // way as when this test was first written
+        assert!(matches!(result, ExecResult::Fetch { address: 0 }));
+        // Can't service an interrupt when an instruction is running
+        assert_eq!(emulator.service_interrupt(), None);
+        // Request an interrupt that runs rst 18h
+        emulator.interrupt(0xdf);
+        // Still can't  service the interrupt
+        assert_eq!(emulator.service_interrupt(), None);
+        emulator.access_memory(result, &mut program);
+        // Should run into the first out before the ei because it was already running when the
+        // interruption was requested
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(
+            1,
+            result,
+            "Interruption handled during instruction execution"
+        );
+        // ei finished. The next instruction should be still not interrupted
+        let result = emulator.run_with_memory(&mut program);
+        assert_matches!(result, ExecResult::Ei(_));
+        // Should run into the out after the ei
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(
+            2,
+            result,
+            "ei didn't block interruptions for the next instruction"
+        );
+        // Should start handling the interruption
+        let result = emulator.run_with_memory(&mut program);
+        assert_matches!(result, ExecResult::Int(_));
+        // Should perform a rst 18h and run into the out inside the handler
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(7, result, "Didn't start handling interruption");
+        // EI at the end of the handler
+        let result = emulator.run_with_memory(&mut program);
+        assert_matches!(result, ExecResult::Ei(_));
+        // RETI returning from the handler
+        let result = emulator.run_with_memory(&mut program);
+        assert_matches!(result, ExecResult::Reti(_));
+        // Should return to where we were before
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(3, result, "interruption didn't return properly");
+    }
+
+    #[test]
+    fn check_if_interrupts_trigger_in_the_middle_of_instructions_and_break_stuff() {
+        let mut emulator = Emulator::new_z80();
+        let mut program = make_program();
+        // Put SP within our memory by hand since we'll skip that instruction in this test
+        emulator.state.set_register_16(Register16::SP, 0xff);
+        // Start executing the first instruction to put the processor in a state it shouldn't be
+        // able to run instructions
+        let result = emulator.run();
+        assert!(matches!(result, ExecResult::Fetch { address: 0 }));
+        emulator.access_memory(result, &mut program);
+        // Trigger a NMI
+        emulator.non_masking_interrupt();
+        // Continue running the first instruction. We should get out as a result
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(
+            1,
+            result,
+            "Interruption handled during instruction execution"
+        );
+        let result =
+            emulator.run_with_memory_trap(&mut program, |e| matches!(e, ExecResult::Done(_)));
+        assert_matches!(
+            result,
+            ExecResult::Done(_),
+            "The instruction didn't finish as it should"
+        );
+        // Continue execution, we should go get a result indicating an interruption was triggered
+        assert_matches!(emulator.run_with_memory(&mut program), ExecResult::Int(_));
+        // Keep running. We should be inside the NMI handler at address 66h
+        let result = emulator.run_with_memory(&mut program);
+        assert_port!(0x66, result, "NMI didn't trigger");
+        // The program now should return from the handler and execute the EI instruction
+        assert_matches!(emulator.run_with_memory(&mut program), ExecResult::Ei(_));
+    }
+
+    #[test]
+    fn check_if_nmis_have_precedence_over_regular_interrupts() {
+        let mut emulator = Emulator::new_z80();
+        let mut program = make_program();
+        // Loop until interrupts are enabled
+        loop {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+                // Check if it's the out after the ei
+                if port & 0xff == 0x02 {
+                    break;
+                }
+            }
+        }
+        // Trigger an NMI and an interrupt
+        emulator.non_masking_interrupt();
+        emulator.interrupt(0xe7); // rst 20h
+        // Run until an out
+        loop {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+                assert_eq!(0x66, port & 0xff, "Didn't go to the NMI handler");
+                break;
+            }
+        }
+        // Run until we're in the middle of the interrupt handler
+        loop {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+                if port & 0xff == 0x20 {
+                    break;
+                }
+            }
+        }
+        // Interrupts are disabled, and we're in the middle of a handler: Trigger a NMI.
+        emulator.non_masking_interrupt();
+        // Run until an out
+        loop {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+                // We should have jumped straight into the NMI handler
+                assert_eq!(0x66, port & 0xff, "Didn't go to the NMI handler");
+                break;
+            }
+        }
+        // After all is said and done we should go back to the interruption handler that was running
+        // before the NMI
+        loop {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+                // We should have jumped straight into the NMI handler
+                assert_eq!(
+                    0x21,
+                    port & 0xff,
+                    "Didn't return to the interruption handler at 20h"
+                );
+                break;
+            }
+        }
     }
 }
