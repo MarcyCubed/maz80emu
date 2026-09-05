@@ -55,7 +55,7 @@ fn run_memory(mut memory: [u8; 0x10000]) {
     //emulator.enable_tracing();
     //emulator.enable_state_dump();
     loop {
-        match emulator.run_with_full_memory(&mut memory) {
+        match emulator.run_with_memory(&mut memory) {
             ExecResult::In { .. } => {
                 bdos_call(&emulator.state, &memory);
             }

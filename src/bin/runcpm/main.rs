@@ -89,8 +89,8 @@ impl CpmRunner {
                     println!("Crashed");
                     break;
                 }
-                ExecResult::Fetch { address } => {
-                    self.emulator.send_byte(self.memory[address as usize]);
+                fetch @ ExecResult::Fetch { .. } => {
+                    self.emulator.access_memory(fetch, &mut self.memory);
                     self.instruction_counter += 1;
                 }
                 _ => {}

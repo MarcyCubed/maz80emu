@@ -137,6 +137,23 @@ impl ExecResult {
             ExecResult::Done(_) | ExecResult::Reti(_) | ExecResult::Halt
         )
     }
+
+    /// Test if the result is a request for memory access
+    pub fn is_memory(self) -> bool {
+        matches!(
+            self,
+            ExecResult::Fetch { .. }
+                | ExecResult::Load { .. }
+                | ExecResult::Load16 { .. }
+                | ExecResult::Store { .. }
+                | ExecResult::Store16 { .. }
+        )
+    }
+
+    /// Test if the result is an I/O request
+    pub fn is_io(self) -> bool {
+        matches!(self, ExecResult::In { .. } | ExecResult::Out { .. })
+    }
 }
 
 /// The processor's instruction set.

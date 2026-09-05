@@ -128,6 +128,67 @@ impl Emulator {
         result
     }
 
+    /// If the [ExecResult] is related to loading or storing data in the memory, try to perform it.
+    ///
+    /// If the request is a memory access and its address is within the memory's bounds, the
+    /// requested action will be performed and the function will return `true`.
+    /// Otherwise, nothing will be done and `false` will be returned instead.
+    pub fn access_memory(&mut self, request: ExecResult, memory: &mut [u8]) -> bool {
+        // Get the address for the memory access if it's valid
+        fn get_address(memory: &[u8], address: u16) -> Option<usize> {
+            let address = address as usize;
+            if address < memory.len() {
+                Some(address)
+            } else {
+                None
+            }
+        }
+
+        // Get the addresses for the first and second index
+        fn get_address_16(memory: &[u8], address: u16) -> Option<(usize, usize)> {
+            let address_0 = get_address(memory, address)?;
+            let address_1 = get_address(memory, address.wrapping_add(1))?;
+            Some((address_0, address_1))
+        }
+
+        match request {
+            ExecResult::Fetch { address } | ExecResult::Load { address } => {
+                if let Some(address) = get_address(memory, address) {
+                    self.send_byte(memory[address]);
+                    true
+                } else {
+                    false
+                }
+            }
+            ExecResult::Load16 { address } => {
+                if let Some((address_0, address_1)) = get_address_16(memory, address) {
+                    self.send_word([memory[address_0], memory[address_1]]);
+                    true
+                } else {
+                    false
+                }
+            }
+            ExecResult::Store { address, data } => {
+                if let Some(address) = get_address(memory, address) {
+                    memory[address] = data;
+                    true
+                } else {
+                    false
+                }
+            }
+            ExecResult::Store16 { address, data } => {
+                if let Some((address_0, address_1)) = get_address_16(memory, address) {
+                    memory[address_0] = data[0];
+                    memory[address_1] = data[1];
+                    true
+                } else {
+                    false
+                }
+            }
+            _ => false,
+        }
+    }
+
     /// Run the emulator with a given memory, optionally disabling automatic handling of any
     /// operation.
     ///
@@ -144,40 +205,8 @@ impl Emulator {
             if trap(result) {
                 return result;
             }
-            match result {
-                ExecResult::Load { address } | ExecResult::Fetch { address } => {
-                    match memory.get(address as usize).copied() {
-                        None => return result,
-                        Some(data) => {
-                            self.state.load_data_8(data);
-                        }
-                    }
-                }
-                ExecResult::Load16 { address } => {
-                    let address_0 = address as usize;
-                    let address_1 = address_0.wrapping_add(1);
-                    if address_0 >= memory.len() || address_1 >= memory.len() {
-                        return result;
-                    } else {
-                        self.state
-                            .load_data_16([memory[address_0], memory[address_1]]);
-                    }
-                }
-                ExecResult::Store { address, data } => match memory.get_mut(address as usize) {
-                    None => return result,
-                    Some(cell) => *cell = data,
-                },
-                ExecResult::Store16 { address, data } => {
-                    let address_0 = address as usize;
-                    let address_1 = address_0.wrapping_add(1);
-                    if address_0 >= memory.len() || address_1 >= memory.len() {
-                        return result;
-                    } else {
-                        memory[address_0] = data[0];
-                        memory[address_1] = data[1];
-                    }
-                }
-                _ => return result,
+            if !self.access_memory(result, memory) {
+                return result;
             }
         }
     }
@@ -188,32 +217,6 @@ impl Emulator {
     /// load or store request will be returned as in [[Emulator::run]].
     pub fn run_with_memory(&mut self, memory: &mut [u8]) -> ExecResult {
         self.run_with_memory_trap(memory, |_| false)
-    }
-
-    /// Run the emulator with 64 kilobytes of memory.
-    pub fn run_with_full_memory(&mut self, memory: &mut [u8; 0x10000]) -> ExecResult {
-        loop {
-            let result = self.run();
-            match result {
-                ExecResult::Load { address } | ExecResult::Fetch { address } => {
-                    self.state.load_data_8(memory[address as usize])
-                }
-                ExecResult::Load16 { address } => {
-                    let address = address as usize;
-                    self.state
-                        .load_data_16([memory[address], memory[address + 1]]);
-                }
-                ExecResult::Store { address, data } => {
-                    memory[address as usize] = data;
-                }
-                ExecResult::Store16 { address, data } => {
-                    let address = address as usize;
-                    memory[address] = data[0];
-                    memory[address + 1] = data[1];
-                }
-                _ => return result,
-            }
-        }
     }
 
     /// Pass a byte to the emulator to complete a memory or input instruction
