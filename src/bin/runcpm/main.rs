@@ -44,7 +44,7 @@ impl CpmRunner {
         runner
     }
 
-    /// Handle CP/M BDOS call 5
+    /// Handle CP/M BDOS calls 2 and 9
     fn bdos_call(&self) {
         match self.emulator.state.c() {
             2 => {
