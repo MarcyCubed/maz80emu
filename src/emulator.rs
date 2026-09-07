@@ -199,29 +199,40 @@ impl Emulator {
     /// If the requested address is within the memory slice and `trap` returns `false`, the memory
     /// request will be processed automatically.
     /// Otherwise, the load or store request will be returned as in [[Emulator::run]].
+    ///
+    /// Return the first [ExecResult] that was caught by the trap or couldn't be handled, and the
+    /// number of T states it took to execute the program.
     pub fn run_with_memory_trap<F: Fn(ExecResult) -> bool>(
         &mut self,
         memory: &mut impl Memory,
         trap: F,
-    ) -> ExecResult {
-        loop {
-            let result = self.run();
-            if trap(result) {
-                return result;
-            }
-            match result {
-                ExecResult::Done(_) => {}
-                result if self.access_memory(result, memory) => {}
-                _ => return result,
-            }
-        }
+    ) -> (ExecResult, usize) {
+        let mut t_states = 0usize;
+        (
+            loop {
+                let result = self.run();
+                t_states += result.t_states() as usize;
+                if trap(result) {
+                    break result;
+                }
+                match result {
+                    ExecResult::Done(_) => {}
+                    result if self.access_memory(result, memory) => {}
+                    _ => break result,
+                }
+            },
+            t_states,
+        )
     }
 
     /// Run the emulator with memory.
     ///
     /// Handle memory access for the emulator. If the requested address is out of bounds, the
     /// load or store request will be returned as in [[Emulator::run]].
-    pub fn run_with_memory(&mut self, memory: &mut impl Memory) -> ExecResult {
+    ///
+    /// Return the first [ExecResult] it couldn't handle and the number of T states it took to
+    /// execute the program.
+    pub fn run_with_memory(&mut self, memory: &mut impl Memory) -> (ExecResult, usize) {
         self.run_with_memory_trap(memory, |_| false)
     }
 
@@ -364,36 +375,36 @@ mod tests {
         emulator.access_memory(result, &mut program);
         // Should run into the first out before the ei because it was already running when the
         // interruption was requested
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(
             1,
             result,
             "Interruption handled during instruction execution"
         );
         // ei finished. The next instruction should be still not interrupted
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_matches!(result, ExecResult::Ei(_));
         // Should run into the out after the ei
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(
             2,
             result,
             "ei didn't block interruptions for the next instruction"
         );
         // Should start handling the interruption
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_matches!(result, ExecResult::Int(_));
         // Should perform a rst 18h and run into the out inside the handler
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(7, result, "Didn't start handling interruption");
         // EI at the end of the handler
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_matches!(result, ExecResult::Ei(_));
         // RETI returning from the handler
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_matches!(result, ExecResult::Reti(_));
         // Should return to where we were before
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(3, result, "interruption didn't return properly");
     }
 
@@ -411,13 +422,13 @@ mod tests {
         // Trigger a NMI
         emulator.non_masking_interrupt();
         // Continue running the first instruction. We should get out as a result
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(
             1,
             result,
             "Interruption handled during instruction execution"
         );
-        let result =
+        let (result, _) =
             emulator.run_with_memory_trap(&mut program, |e| matches!(e, ExecResult::Done(_)));
         assert_matches!(
             result,
@@ -425,12 +436,12 @@ mod tests {
             "The instruction didn't finish as it should"
         );
         // Continue execution, we should go get a result indicating an interruption was triggered
-        assert_matches!(emulator.run_with_memory(&mut program), ExecResult::Int(_));
+        assert_matches!(emulator.run_with_memory(&mut program).0, ExecResult::Int(_));
         // Keep running. We should be inside the NMI handler at address 66h
-        let result = emulator.run_with_memory(&mut program);
+        let (result, _) = emulator.run_with_memory(&mut program);
         assert_port!(0x66, result, "NMI didn't trigger");
         // The program now should return from the handler and execute the EI instruction
-        assert_matches!(emulator.run_with_memory(&mut program), ExecResult::Ei(_));
+        assert_matches!(emulator.run_with_memory(&mut program).0, ExecResult::Ei(_));
     }
 
     #[test]
@@ -439,7 +450,7 @@ mod tests {
         let mut program = make_program();
         // Loop until interrupts are enabled
         loop {
-            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program).0 {
                 // Check if it's the out after the ei
                 if port & 0xff == 0x02 {
                     break;
@@ -451,14 +462,14 @@ mod tests {
         emulator.interrupt(0xe7); // rst 20h
         // Run until an out
         loop {
-            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program).0 {
                 assert_eq!(0x66, port & 0xff, "Didn't go to the NMI handler");
                 break;
             }
         }
         // Run until we're in the middle of the interrupt handler
         loop {
-            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program).0 {
                 if port & 0xff == 0x20 {
                     break;
                 }
@@ -468,7 +479,7 @@ mod tests {
         emulator.non_masking_interrupt();
         // Run until an out
         loop {
-            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program).0 {
                 // We should have jumped straight into the NMI handler
                 assert_eq!(0x66, port & 0xff, "Didn't go to the NMI handler");
                 break;
@@ -477,7 +488,7 @@ mod tests {
         // After all is said and done we should go back to the interruption handler that was running
         // before the NMI
         loop {
-            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program) {
+            if let ExecResult::Out { port, .. } = emulator.run_with_memory(&mut program).0 {
                 // We should have jumped straight into the NMI handler
                 assert_eq!(
                     0x21,

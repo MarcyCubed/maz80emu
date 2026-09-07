@@ -72,9 +72,13 @@ impl CpmRunner {
                 self.emulator.enable_state_dump();
                 //self.emulator.enable_tracing();
             }
-            match self.emulator.run_with_memory_trap(&mut self.memory, |er| {
-                matches!(er, ExecResult::Fetch { .. })
-            }) {
+            match self
+                .emulator
+                .run_with_memory_trap(&mut self.memory, |er| {
+                    matches!(er, ExecResult::Fetch { .. })
+                })
+                .0
+            {
                 ExecResult::In { .. } => {
                     self.bdos_call();
                     self.emulator.state.load_data_8(0xff);
