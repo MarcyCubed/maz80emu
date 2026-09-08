@@ -154,6 +154,18 @@ impl ExecResult {
     pub fn is_io(self) -> bool {
         matches!(self, ExecResult::In { .. } | ExecResult::Out { .. })
     }
+
+    /// Get the memory address of a result if it's memory operation
+    pub fn get_address(self) -> Option<u16> {
+        match self {
+            ExecResult::Fetch { address }
+            | ExecResult::Load { address }
+            | ExecResult::Load16 { address }
+            | ExecResult::Store { address, .. }
+            | ExecResult::Store16 { address, .. } => Some(address),
+            _ => None,
+        }
+    }
 }
 
 /// The processor's instruction set.

@@ -193,6 +193,46 @@ impl Emulator {
         try_access_memory(self, request, memory).is_some()
     }
 
+    /// Run the emulator with a given memory until it reaches the limit, optionally disabling
+    /// automatic handling of any operation.
+    ///
+    /// If the requested address is within the memory slice and `trap` returns `false`, the memory
+    /// request will be processed automatically.
+    /// Otherwise, the load or store request will be returned as in [[Emulator::run]].
+    ///
+    /// If the total run time in T-states becomes larger than the limit, the execution will be
+    /// stopped and this function will return.
+    ///
+    /// Return the first [ExecResult] that was caught by the trap, couldn't be handled or which
+    /// execution pushed the running time over the limit. And the number of T states it took to
+    /// execute the program.
+    pub fn run_with_memory_trap_limit<F: Fn(ExecResult) -> bool>(
+        &mut self,
+        memory: &mut impl Memory,
+        trap: F,
+        limit: usize,
+    ) -> (ExecResult, usize) {
+        let mut t_states = 0usize;
+        (
+            loop {
+                let result = self.run();
+                t_states += result.t_states() as usize;
+                if trap(result) {
+                    break result;
+                }
+                match result {
+                    ExecResult::Done(_) => {}
+                    result if self.access_memory(result, memory) => {}
+                    _ => break result,
+                }
+                if t_states > limit {
+                    break result;
+                }
+            },
+            t_states,
+        )
+    }
+
     /// Run the emulator with a given memory, optionally disabling automatic handling of any
     /// operation.
     ///
@@ -234,6 +274,22 @@ impl Emulator {
     /// execute the program.
     pub fn run_with_memory(&mut self, memory: &mut impl Memory) -> (ExecResult, usize) {
         self.run_with_memory_trap(memory, |_| false)
+    }
+
+    /// Run the emulator with memory until the run time in T-cycles exceeds the limit or the
+    /// function hits something it can't handle.
+    ///
+    /// Handle memory access for the emulator. If the requested address is out of bounds, the
+    /// load or store request will be returned as in [[Emulator::run]].
+    ///
+    /// Return the first [ExecResult] it couldn't handle and the number of T states it took to
+    /// execute the program.
+    pub fn run_with_memory_limit(
+        &mut self,
+        memory: &mut impl Memory,
+        limit: usize,
+    ) -> (ExecResult, usize) {
+        self.run_with_memory_trap_limit(memory, |_| false, limit)
     }
 
     /// Pass a byte to the emulator to complete a memory or input instruction
@@ -498,5 +554,14 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn check_running_limit() {
+        let mut program = [0x18, 0xfe]; // jr -2 : Infinite loop
+        let mut emulator = Emulator::new_z80();
+        const LIMIT: usize = 10000;
+        let (_, t_states) = emulator.run_with_memory_limit(&mut program, LIMIT);
+        assert!(t_states > LIMIT, "Stopped before reaching the limit.");
     }
 }
