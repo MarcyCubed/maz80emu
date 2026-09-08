@@ -8,6 +8,8 @@ to the user. No memory? No problem! You can handle the processor's load and stor
 
 This shouldn't be too hard to use and people can implement whatever memory and I/O weirdness they want.
 
+The emulator passes all *ZEXALL* tests, so you can expect the instructions to do exactly what they should. 
+
 ## Why another Z80 emulator?
 
 In college, I learned about processors and did a little programming in machine language. That was only with toy
@@ -107,7 +109,7 @@ match emulator.run() {
 
 #### Storing data in memory: `Store` and `Store16`
 These are the counterparts for `Load` and friends. When the processor wants to store data in memory it'll return one of
-these. `Store` to store a byte and `Store16` to store two.
+them. `Store` to store a byte and `Store16` to store two.
 
 ```rust
 match emulator.run() {
@@ -124,7 +126,7 @@ match emulator.run() {
 ```
 
 #### Input and Output: `In` and `Out`
-`Emulator::run` returns this when the Z80 program wants to perform I/O. They are analogue to `Load` and `Store`. The
+`Emulator::run` returns this when the Z80 program wants to perform I/O. They are analogous to `Load` and `Store`. The
 data requested by `In` should be provided with the same `Emulator::send_byte` function as `Load`.
 
 ```rust
@@ -192,7 +194,7 @@ fn print_accessed_addresses(memory: &mut [u8]) {
         match emulator.run_with_memory_trap(memory, ExecResult::is_memory).0 { // .0 is the ExecResult
             result if result.is_memory() => {
                 if let Some(address) = result.get_address() {
-                    println("addr: 0x{:04x}", )
+                    println("addr: 0x{:04x}", address)
                 }
             }
             _ => {} // Ignore the rest
