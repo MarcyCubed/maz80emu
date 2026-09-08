@@ -203,7 +203,7 @@ fn print_accessed_addresses(memory: &mut [u8]) {
 }
 ```
 
-### I can't wait until it finishes to do something else
+### I don't want to wait until it finishes to do something else
 
 You can set a limit in T-steps with `Emulator::run_with_memory_limit`.
 ```rust
