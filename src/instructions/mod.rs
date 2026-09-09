@@ -16,6 +16,7 @@ pub mod micro;
 #[cfg(test)]
 mod test_cpu;
 
+#[cfg(feature = "debugging")]
 use crate::state::State;
 use micro::Microinstruction;
 #[cfg(test)]
@@ -198,6 +199,7 @@ pub enum Instruction {
         /// The list of micro instructions implementing the instruction
         micros: &'static [Microinstruction],
         /// Printer for the instruction
+        #[cfg(feature = "debugging")]
         printer: fn(&State),
     },
     /// This prefixed instruction does the same as if it had no prefix
@@ -212,6 +214,7 @@ pub struct TwoPrefixInstruction {
     /// The list of micro instructions implementing the instruction
     pub micros: &'static [Microinstruction],
     /// Printer for the instruction
+    #[cfg(feature = "debugging")]
     pub printer: fn(&State),
 }
 
@@ -219,6 +222,7 @@ pub struct TwoPrefixInstruction {
 pub const NOP: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| ExecResult::Done(0)],
+    #[cfg(feature = "debugging")]
     printer: |_| println!("nop"),
 };
 
@@ -229,6 +233,7 @@ pub const HALT: Instruction = Instruction::Instruction {
         *state.pc_mut() = state.pc().wrapping_sub(1).to_le_bytes();
         ExecResult::Halt
     }],
+    #[cfg(feature = "debugging")]
     printer: |_| println!("halt"),
 };
 
@@ -239,6 +244,7 @@ macro_rules! simple_instruction {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[$body],
+            #[cfg(feature = "debugging")]
             printer: |_| println!($name),
         }
     };
@@ -254,6 +260,7 @@ macro_rules! one_byte_instruction {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: $micros,
+            #[cfg(feature = "debugging")]
             printer: |_| println!($name),
         }
     };
@@ -264,6 +271,7 @@ macro_rules! one_byte_instruction {
 pub const UNIMPLEMENTED: Instruction = Instruction::Instruction {
     extra_bytes: ExtraBytes::None,
     micros: &[|_| unimplemented!("Instruction isn't implemented")],
+    #[cfg(feature = "debugging")]
     printer: |_| println!("crash"),
 };
 

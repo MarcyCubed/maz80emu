@@ -114,9 +114,13 @@ impl Decoder {
                     Instruction::Instruction {
                         extra_bytes,
                         micros,
+                        #[cfg(feature = "debugging")]
                         printer,
                     } => {
-                        self.last_printer = printer;
+                        #[cfg(feature = "debugging")]
+                        {
+                            self.last_printer = printer;
+                        }
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
@@ -164,7 +168,10 @@ impl Decoder {
                 *state.z_mut() = self.opcode;
                 let instruction = table[self.opcode as usize];
                 self.last_instruction = instruction.micros;
-                self.last_printer = instruction.printer;
+                #[cfg(feature = "debugging")]
+                {
+                    self.last_printer = instruction.printer;
+                }
                 self.state = DecoderState::Decoded;
                 self.decode(state)
             }
@@ -194,21 +201,25 @@ impl Decoder {
     }
 
     /// Show the instructions as they are decoded
+    #[cfg(feature = "debugging")]
     pub fn enable_tracing(&mut self) {
         self.is_tracing = true;
     }
 
     /// Don't show the instructions
+    #[cfg(feature = "debugging")]
     pub fn disable_tracing(&mut self) {
         self.is_tracing = false;
     }
 
     /// Show the state before each instruction
+    #[cfg(feature = "debugging")]
     pub fn enable_state_dump(&mut self) {
         self.show_state = true;
     }
 
     /// Don't show the state before each instruction
+    #[cfg(feature = "debugging")]
     pub fn disable_state_dump(&mut self) {
         self.show_state = false;
     }

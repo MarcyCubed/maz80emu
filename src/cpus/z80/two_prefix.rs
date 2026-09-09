@@ -10,6 +10,7 @@ use crate::state::{Flags, Register};
 macro_rules! load_store_instruction {
     ($name:expr, $op: expr, $reg:expr) => {
         TwoPrefixInstruction {
+            #[cfg(feature = "debugging")]
             printer: |state| {
                 print!("{} ({}{:+})", $name, I::REGISTER, state.w() as i8);
                 if $reg != Register::Z {
@@ -54,6 +55,7 @@ macro_rules! load_store_group {
 macro_rules! bit_instruction {
     ($bit:literal) => {
         TwoPrefixInstruction {
+            #[cfg(feature = "debugging")]
             printer: |state| println!("bit {}, {}{:+}", $bit, I::REGISTER, state.w() as i8),
             micros: &[
                 |state| ExecResult::load(I::get_offset_w(state)),
@@ -77,6 +79,7 @@ macro_rules! bit_instruction {
 macro_rules! bit_select_instruction {
     ($name:expr, $op: expr, $bit:literal, $reg:expr) => {
         TwoPrefixInstruction {
+            #[cfg(feature = "debugging")]
             printer: |state| {
                 print!("{} {}, ({}{:+})", $name, $bit, I::REGISTER, state.w() as i8);
                 if $reg != Register::Z {
@@ -137,6 +140,7 @@ pub(super) const fn make_two_prefixes_instructions<I: Index>() -> TwoPrefixTable
 
     let mut table = [TwoPrefixInstruction {
         micros: &[|_| unimplemented!("Instruction isn't implemented")],
+        #[cfg(feature = "debugging")]
         printer: |_| println!("crash"),
     }; 256];
 

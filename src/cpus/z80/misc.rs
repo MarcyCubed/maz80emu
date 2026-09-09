@@ -17,6 +17,7 @@ macro_rules! in_r_c {
                 |state| ExecResult::input(state.bc()),
                 |state| io::in_r_bc(state, $reg, 12),
             ],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("in {}, (c)", $reg),
         }
     };
@@ -34,6 +35,7 @@ macro_rules! out_c_r {
                 },
                 |_| ExecResult::Done(12),
             ],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("out (c), {}", $reg),
         }
     };
@@ -45,6 +47,7 @@ macro_rules! sbc_hl_rr {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| math::sbc_hl_rr(state, $reg, 15)],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("sbc hl, {}", $reg),
         }
     };
@@ -56,6 +59,7 @@ macro_rules! adc_hl_rr {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| math::adc_hl_rr(state, $reg, 15)],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("adc hl, {}", $reg),
         }
     };
@@ -67,6 +71,7 @@ macro_rules! ld_mm_rr {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::Two,
             micros: &[|state| ld::ld_mm_rr(state, $reg), |_| ExecResult::Done(0)],
+            #[cfg(feature = "debugging")]
             printer: |state| println!("ld ({:x}h), {}", state.wz(), $reg),
         }
     };
@@ -84,6 +89,7 @@ macro_rules! ld_rr_mm {
                 },
                 |state| ld::ld_rr_rr(state, $reg, Register16::WZ, 20),
             ],
+            #[cfg(feature = "debugging")]
             printer: |state| println!("ld {}, ({:x}h)", $reg, state.wz()),
         }
     };
@@ -95,6 +101,7 @@ macro_rules! ld_r_a {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| ld::ld_r_r(state, $dst, Register::A, 9)],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("ld {}, a", $dst),
         }
     };
@@ -114,6 +121,7 @@ macro_rules! ld_a_r {
                 *state.a_mut() = value;
                 ExecResult::Done(9)
             }],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("ld a, {}", $src),
         }
     };
@@ -221,6 +229,7 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
             },
             |state| io::in_r_bc(state, Register::A, 12),
         ],
+        #[cfg(feature = "debugging")]
         printer: |_| println!("in a, (c)"),
     };
     // out (c), r instructions
@@ -243,6 +252,7 @@ pub static MISC_INSTRUCTIONS: InstructionSet = {
             },
             |_| ExecResult::Done(12),
         ],
+        #[cfg(feature = "debugging")]
         printer: |_| println!("out (c), a"),
     };
     // sbc hl, rr

@@ -8,3 +8,10 @@ strum = { version = "0.28", features = ["derive"] }
 
 [[bin]]
 name = "runcpm"
+
+[features]
+# Show stuf while running a program
+debugging = []
+
+[profile.release]
+debug = "line-tables-only"

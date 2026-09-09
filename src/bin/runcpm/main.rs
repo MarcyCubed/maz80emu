@@ -3,8 +3,8 @@ use maz80emu::instructions::ExecResult;
 use maz80emu::state::Register16;
 use std::fs;
 
-const MIN_PRINT: usize = usize::MAX;
-const MAX_PRINT: usize = usize::MAX;
+//const MIN_PRINT: usize = usize::MAX;
+//const MAX_PRINT: usize = usize::MAX;
 
 //const MIN_PRINT: usize = 000000;
 //const MAX_PRINT: usize = 100000;
@@ -66,12 +66,13 @@ impl CpmRunner {
     /// Run the program stored in memory
     fn run(&mut self) {
         loop {
+            /*
             if self.instruction_counter == MAX_PRINT {
                 return;
             } else if self.instruction_counter == MIN_PRINT {
                 self.emulator.enable_state_dump();
                 //self.emulator.enable_tracing();
-            }
+            }*/
             match self
                 .emulator
                 .run_with_memory_trap(&mut self.memory, |er| {

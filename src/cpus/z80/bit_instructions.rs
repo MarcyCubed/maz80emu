@@ -10,6 +10,7 @@ macro_rules! simple_bit_instruction {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| $op(state, $reg, 0)],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("{} {}", $name, $reg),
         }
     };
@@ -38,6 +39,7 @@ macro_rules! bit_instruction_group {
                     },
                     |_| ExecResult::Done(1),
                 ],
+                #[cfg(feature = "debugging")]
                 printer: |_| println!("{} (hl)", $name),
             },
             simple_bit_instruction!($name, $op, Register::A),
@@ -51,6 +53,7 @@ macro_rules! bit_select_instruction {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::None,
             micros: &[|state| $op(state, $reg, $bit, 0)],
+            #[cfg(feature = "debugging")]
             printer: |_| println!("{} {}, {}", $name, $bit, $reg),
         }
     };
@@ -79,6 +82,7 @@ macro_rules! bit_select_group {
                     },
                     |_| ExecResult::Done(1),
                 ],
+                #[cfg(feature = "debugging")]
                 printer: |_| println!("{} {}, (hl)", $name, $bit),
             },
             bit_select_instruction!($name, $op, $bit, Register::A),
@@ -114,6 +118,7 @@ macro_rules! bit_group {
                     },
                     |_| ExecResult::Done(1),
                 ],
+                #[cfg(feature="debugging")]
                 printer: |_| println!("bit {}, (hl)", $bit),
             },
             bit_select_instruction!("bit", bit::bit_r, $bit, Register::A),

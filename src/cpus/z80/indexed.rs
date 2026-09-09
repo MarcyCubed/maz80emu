@@ -68,6 +68,7 @@ macro_rules! inc_dec_izd {
     ($name:literal, $op:expr) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::One,
+            #[cfg(feature = "debugging")]
             printer: |state| println!("{} ({}+{})", $name, I::REGISTER, state.z() as i8),
             micros: &[
                 |state| {
@@ -89,6 +90,7 @@ macro_rules! ld_r_izd {
     ($reg:expr) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::One,
+            #[cfg(feature = "debugging")]
             printer: |state| println!("ld {}, ({}+{})", $reg, I::REGISTER, state.z() as i8),
             micros: &[
                 |state| ExecResult::load(I::get_offset_z(state)),
@@ -102,6 +104,7 @@ macro_rules! ld_izd_r {
     ($reg:expr) => {
         Instruction::Instruction {
             extra_bytes: ExtraBytes::One,
+            #[cfg(feature = "debugging")]
             printer: |state| println!("ld ({}+{}), {}", I::REGISTER, state.z() as i8, $reg),
             micros: &[
                 |state| ExecResult::Store {
@@ -122,6 +125,7 @@ macro_rules! math_izd {
                 |state| ExecResult::load(I::get_offset_z(state)),
                 |state| $op(state, Register::Z, 5),
             ],
+            #[cfg(feature = "debugging")]
             printer: |state| println!("{} ({}+{})", $name, I::REGISTER, state.z() as i8),
         }
     };
@@ -195,6 +199,7 @@ const fn make_indexed_instructions<I: Index>(
             },
             |_| ExecResult::Done(2),
         ],
+        #[cfg(feature = "debugging")]
         printer: |state| println!("ld ({}+{}, {:x})", I::REGISTER, state.z() as i8, state.w()),
     };
     // add i?, sp
@@ -335,6 +340,7 @@ const fn make_indexed_instructions<I: Index>(
     instructions[0xe9] = Instruction::Instruction {
         extra_bytes: ExtraBytes::None,
         micros: &[|state| jump::jp(state, state.get_register_16(I::REGISTER), 0)],
+        #[cfg(feature = "debugging")]
         printer: |_| println!("jp {}", I::REGISTER),
     };
     // ld sp, i?
@@ -344,6 +350,7 @@ const fn make_indexed_instructions<I: Index>(
             *state.sp_mut() = state.get_register_16(I::REGISTER).to_le_bytes();
             ExecResult::Done(2)
         }],
+        #[cfg(feature = "debugging")]
         printer: |_| println!("ld sp, {}", I::REGISTER),
     };
 

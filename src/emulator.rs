@@ -303,21 +303,25 @@ impl Emulator {
     }
 
     /// Show the instructions as they are executed
+    #[cfg(feature = "debugging")]
     pub fn enable_tracing(&mut self) {
         self.decoder.enable_tracing();
     }
 
     /// Stop showing the instructions
+    #[cfg(feature = "debugging")]
     pub fn disable_tracing(&mut self) {
         self.decoder.disable_tracing();
     }
 
     /// Show the state before each instruction
+    #[cfg(feature = "debugging")]
     pub fn enable_state_dump(&mut self) {
         self.decoder.enable_state_dump();
     }
 
     /// Don't show the state before each instruction
+    #[cfg(feature = "debugging")]
     pub fn disable_state_dump(&mut self) {
         self.decoder.disable_state_dump();
     }
@@ -370,7 +374,14 @@ mod tests {
             0xed, 0x4d, // 2eh: reti
             // Filler
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 30h: nop *  8
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 38h: nop *  8
+            // rst 38h
+            0xf3, // 38h: di
+            0x00, // 39h: nop
+            0xd3, 0x38, // 3ah: out (38h), a
+            0x00, // 3ch nop
+            0xfb, // 3dh: ei
+            0xed, 0x4d, // 3eh: reti
+            // Filler
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 40h: nop *  8
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 48h: nop *  8
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // 50h: nop *  8
@@ -411,6 +422,21 @@ mod tests {
                 assert_eq!($number, port & 0xff, $text);
             }
         };
+    }
+
+    /// Run until we execute an Out or reach the limit
+    fn run_until_out(emulator: &mut Emulator, program: &mut impl Memory, limit: u32) -> ExecResult {
+        let mut limit = limit;
+        loop {
+            match emulator.run_with_memory(program) {
+                (result @ ExecResult::Out { .. }, _) => return result,
+                _ => {}
+            }
+            limit -= 1;
+            if limit == 0 {
+                return ExecResult::Done(0xff);
+            }
+        }
     }
 
     #[test]
@@ -554,6 +580,42 @@ mod tests {
                 break;
             }
         }
+    }
+
+    #[test]
+    fn check_if_im_1_works() {
+        let header = [
+            // Put SP within the memory
+            0x31, 0xff, 0x00, // ld sp, 0xff
+            0xed, 0x56, // im 1
+            0xfb, //  ei
+            0xd3, 0x01, // out (1), a
+            0x00, // nop
+            0xd3, 0x02, // out (2), a
+        ];
+
+        let handler = [
+            0xf3, // 38h: di
+            0x00, // 39h: nop
+            0xd3, 0x38, // 3ah: out (38h), a
+            0x00, // 3ch nop
+            0xfb, // 3dh: ei
+            0xed, 0x4d, // 3eh: reti
+        ];
+        // load our program into memory
+        let mut memory = [0x00u8; 256];
+        memory[0..header.len()].copy_from_slice(&header);
+        memory[0x38..handler.len() + 0x38].copy_from_slice(&handler);
+        let mut emulator = Emulator::new_z80();
+        // Run until out(1)
+        let result = run_until_out(&mut emulator, &mut memory, 1000);
+        assert_port!(1, result, "The program didn't start properly");
+        emulator.interrupt(6); // The number shouldn't matter
+        // Run until the next OUT
+        let result = run_until_out(&mut emulator, &mut memory, 1000);
+        assert_port!(0x38, result, "Interrupt Mode 1 didn't work");
+        let result = run_until_out(&mut emulator, &mut memory, 1000);
+        assert_port!(2, result, "Interrupt Mode 1 didn't return properly");
     }
 
     #[test]

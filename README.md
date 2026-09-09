@@ -240,7 +240,7 @@ addresses.
 
 ## I'd like some interrupts, please.
 
-Interrupts are very simple. Call `Emulator::interrupt(&mut self, data: u8)` to cause a regular interrupt, or 
+Interrupts are very simple. Call `Emulator::interrupt(&mut self, data: u8)` to cause a regular interrupt, or
 `Emulator::non_masking_interrupt` to cause a non-masking one. They'll stay pending until the processor is in a state to
 handle them (not in the middle of an instruction, interrupts enabled for regular ones.)
 
