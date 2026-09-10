@@ -13,13 +13,13 @@ const HALF_CARRY_BIT: u32 = 4;
 const CARRY_BIT: u32 = 8;
 
 /// Increment a 16-bit register
-pub fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
+pub(crate) fn inc_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
     state.set_register_16(register, state.get_register_16(register).wrapping_add(1));
     ExecResult::Done(cycles)
 }
 
 /// Decrement a 16-bit register
-pub fn dec_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
+pub(crate) fn dec_rr(state: &mut State, register: Register16, cycles: u32) -> ExecResult {
     state.set_register_16(register, state.get_register_16(register).wrapping_sub(1));
     ExecResult::Done(cycles)
 }
@@ -55,7 +55,7 @@ pub(crate) fn sub_flags(a: u8, b: u8, borrow_in: bool) -> (u8, Flags) {
 /// Increment an 8-bit register
 ///
 /// Return Done
-pub fn inc_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
+pub(crate) fn inc_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     let (inc, flags) = add_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, inc);
     // Old C flag || Computed new flags
@@ -67,7 +67,7 @@ pub fn inc_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
 /// Decrement an 8-bit register
 ///
 /// Return Done
-pub fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
+pub(crate) fn dec_r(state: &mut State, register: Register, cycles: u32) -> ExecResult {
     let (dec, flags) = sub_flags(state.get_register_8(register), 1, false);
     state.set_register_8(register, dec);
     // Old C flag || Computed new flags
@@ -94,7 +94,12 @@ fn sub_16_flags(a: u16, b: u16, carry_in: bool) -> (u16, Flags) {
 }
 
 /// Add two 16-bit registers together
-pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -> ExecResult {
+pub(crate) fn add_rr_rr(
+    state: &mut State,
+    a: Register16,
+    b: Register16,
+    cycles: u32,
+) -> ExecResult {
     let value = state.get_register_16(a);
     state.memptr = value.wrapping_add(1);
     let (result, flags) = add_16_flags(value, state.get_register_16(b), false);
@@ -108,7 +113,7 @@ pub fn add_rr_rr(state: &mut State, a: Register16, b: Register16, cycles: u32) -
 }
 
 /// Adjust a BCD value after a math operation
-pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn daa(state: &mut State, cycles: u32) -> ExecResult {
     let a = state.a();
     let flags = state.get_flags();
 
@@ -140,7 +145,7 @@ pub fn daa(state: &mut State, cycles: u32) -> ExecResult {
 /// Complement of the accumulator.
 ///
 /// `!a`
-pub fn cpl(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn cpl(state: &mut State, cycles: u32) -> ExecResult {
     let complement = !state.a();
     *state.a_mut() = complement;
     let flags = state
@@ -154,7 +159,7 @@ pub fn cpl(state: &mut State, cycles: u32) -> ExecResult {
 }
 
 /// Increment the contents of the `Z` register then store the result in the given address
-pub fn inc_z_mem(state: &mut State, address: u16) -> ExecResult {
+pub(crate) fn inc_z_mem(state: &mut State, address: u16) -> ExecResult {
     inc_r(state, Register::Z, 0);
     ExecResult::Store {
         address,
@@ -163,7 +168,7 @@ pub fn inc_z_mem(state: &mut State, address: u16) -> ExecResult {
 }
 
 /// Decrement the contents of the `Z` register then store the result in the given address
-pub fn dec_z_mem(state: &mut State, address: u16) -> ExecResult {
+pub(crate) fn dec_z_mem(state: &mut State, address: u16) -> ExecResult {
     dec_r(state, Register::Z, 0);
     ExecResult::Store {
         address,
@@ -172,7 +177,7 @@ pub fn dec_z_mem(state: &mut State, address: u16) -> ExecResult {
 }
 
 /// Set the carry flag
-pub fn scf(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn scf(state: &mut State, cycles: u32) -> ExecResult {
     let flags =
         state.get_flags().select(Flags::S | Flags::Z | Flags::P) | Flags::C | Flags::xy(state.a());
     state.update_flags(flags);
@@ -180,7 +185,7 @@ pub fn scf(state: &mut State, cycles: u32) -> ExecResult {
 }
 
 /// Complement the carry flag
-pub fn ccf(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ccf(state: &mut State, cycles: u32) -> ExecResult {
     let old_flags = state.get_flags();
     let flags = old_flags.select(Flags::S | Flags::Z | Flags::P)
         | Flags::H.set_if(old_flags.is_set(Flags::C))
@@ -191,12 +196,12 @@ pub fn ccf(state: &mut State, cycles: u32) -> ExecResult {
 }
 
 /// Add the value of a register to A
-pub fn add_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn add_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     add_a_r_common(state, reg, false, cycles)
 }
 
 /// Add the value of a register and the existing carry to A
-pub fn adc_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn adc_a_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     add_a_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
 }
 
@@ -223,17 +228,17 @@ fn sub_r_common(state: &mut State, reg: Register, carry_in: bool, cycles: u32) -
 }
 
 /// Subtract the value of a register from A
-pub fn sub_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn sub_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     sub_r_common(state, reg, false, cycles)
 }
 
 /// Subtract the value of a register and the existing carry from A
-pub fn sbc_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn sbc_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     sub_r_common(state, reg, state.get_flags().is_set(Flags::C), cycles)
 }
 
 /// Perform an `AND` operation between the register and the accumulator
-pub fn and_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn and_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() & state.get_register_8(reg);
     let flags = Flags::H | Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -242,7 +247,7 @@ pub fn and_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 }
 
 /// Perform a `XOR` operation between the register and the accumulator
-pub fn xor_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn xor_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() ^ state.get_register_8(reg);
     let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -251,7 +256,7 @@ pub fn xor_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 }
 
 /// Perform an `OR` operation between the register and the accumulator
-pub fn or_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn or_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     let a = state.a() | state.get_register_8(reg);
     let flags = Flags::from_value(a) | Flags::parity(a);
     *state.a_mut() = a;
@@ -260,7 +265,7 @@ pub fn or_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 }
 
 /// Compare the accumulator and the register
-pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
+pub(crate) fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
     //println!(" a = {:x}h  x = {:x}h  ", state.a(), state.get_register_8(reg));
     let value = state.get_register_8(reg);
     let (_, flags) = sub_flags(state.a(), value, false);
@@ -270,7 +275,7 @@ pub fn cp_r(state: &mut State, reg: Register, cycles: u32) -> ExecResult {
 }
 
 /// 16-bit subtraction with carry
-pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
+pub(crate) fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
     state.memptr = state.hl().wrapping_add(1);
     let (hl, flags) = sub_16_flags(
         state.hl(),
@@ -283,7 +288,7 @@ pub fn sbc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult 
 }
 
 /// 16-bit addition with carry
-pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
+pub(crate) fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult {
     state.memptr = state.hl().wrapping_add(1);
     let (hl, flags) = add_16_flags(
         state.hl(),
@@ -298,7 +303,7 @@ pub fn adc_hl_rr(state: &mut State, reg: Register16, cycles: u32) -> ExecResult 
 /// Negation instruction
 ///
 /// `A <- 0 - A`
-pub fn neg(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn neg(state: &mut State, cycles: u32) -> ExecResult {
     let (a, flags) = sub_flags(0, state.a(), false);
     *state.a_mut() = a;
     state.update_flags(flags);
@@ -306,7 +311,7 @@ pub fn neg(state: &mut State, cycles: u32) -> ExecResult {
 }
 
 /// Perform a nybble rotate right between `Z` and the least significant nybble of `A`
-pub fn rrd(state: &mut State) {
+pub(crate) fn rrd(state: &mut State) {
     state.memptr = state.hl().wrapping_add(1);
     let z = state.z();
     let a = state.a();
@@ -318,7 +323,7 @@ pub fn rrd(state: &mut State) {
 }
 
 /// Perform a nybble rotate left between `Z` and the least significant nybble of `A`
-pub fn rld(state: &mut State) {
+pub(crate) fn rld(state: &mut State) {
     state.memptr = state.hl().wrapping_add(1);
     let z = state.z();
     let a = state.a();

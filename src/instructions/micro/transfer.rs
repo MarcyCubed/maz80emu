@@ -3,7 +3,7 @@ use crate::instructions::micro::math;
 use crate::state::{Flags, Register16, State};
 
 /// Switch the data of AF and AF'
-pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
     let af = state.af();
     *state.af_mut() = state.get_register_16_bytes(Register16::AfAlt);
     state.set_register_16(Register16::AfAlt, af);
@@ -11,7 +11,7 @@ pub fn ex_af_af(state: &mut State, cycles: u32) -> ExecResult {
 }
 
 /// Switch between register sets
-pub fn exx(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn exx(state: &mut State, cycles: u32) -> ExecResult {
     let offset = Register16::HlAlt as usize - Register16::HL as usize;
     for register in Register16::BC as usize..=Register16::HL as usize {
         let value = state.registers[register];
@@ -41,7 +41,7 @@ fn ldx_registers(state: &mut State, offset: i16) {
 /// Updates the registers for a `LDI` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldi_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ldi_registers(state: &mut State, cycles: u32) -> ExecResult {
     ldx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -93,14 +93,18 @@ fn ldxr_registers(
 /// Updates the registers for a `LDIR` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn ldir_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     ldxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for a `LDD` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
     ldx_registers(state, -1);
     ExecResult::Done(cycles)
 }
@@ -108,7 +112,11 @@ pub fn ldd_registers(state: &mut State, cycles: u32) -> ExecResult {
 /// Updates the registers for a `LDDR` instruction
 ///
 /// This should be called after the memory transfer is done
-pub fn lddr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn lddr_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     ldxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }
 
@@ -135,7 +143,7 @@ fn cpx_registers(state: &mut State, offset: i16) {
 /// Updates the registers for a `CPI` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpi_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn cpi_registers(state: &mut State, cycles: u32) -> ExecResult {
     cpx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -143,7 +151,7 @@ pub fn cpi_registers(state: &mut State, cycles: u32) -> ExecResult {
 /// Updates the registers for a `CPD` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpd_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn cpd_registers(state: &mut State, cycles: u32) -> ExecResult {
     cpx_registers(state, -1);
     ExecResult::Done(cycles)
 }
@@ -151,7 +159,7 @@ pub fn cpd_registers(state: &mut State, cycles: u32) -> ExecResult {
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpxr_registers(
+pub(crate) fn cpxr_registers(
     state: &mut State,
     offset: i16,
     cycles_loop: u32,
@@ -171,14 +179,22 @@ pub fn cpxr_registers(
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn cpir_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     cpxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for a `CPIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn cpdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn cpdr_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     cpxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }
 
@@ -194,7 +210,7 @@ fn inx_registers(state: &mut State, offset: i16) {
 /// Updates the registers for an `INI` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn ini_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ini_registers(state: &mut State, cycles: u32) -> ExecResult {
     inx_registers(state, 1);
     ExecResult::Done(cycles)
 }
@@ -202,7 +218,7 @@ pub fn ini_registers(state: &mut State, cycles: u32) -> ExecResult {
 /// Updates the registers for an `IND` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn ind_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn ind_registers(state: &mut State, cycles: u32) -> ExecResult {
     inx_registers(state, -1);
     ExecResult::Done(cycles)
 }
@@ -210,7 +226,7 @@ pub fn ind_registers(state: &mut State, cycles: u32) -> ExecResult {
 /// Updates the registers for an `INIR` or `INDR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn inxr_registers(
+pub(crate) fn inxr_registers(
     state: &mut State,
     offset: i16,
     cycles_loop: u32,
@@ -230,14 +246,22 @@ pub fn inxr_registers(
 /// Updates the registers for an `INIR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn inir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn inir_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     inxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `INDR` instruction
 ///
 /// This should be called after `(HL)` was already loaded
-pub fn indr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn indr_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     inxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }
 
@@ -251,19 +275,19 @@ fn outx_registers(state: &mut State, offset: i16) {
 }
 
 /// Updates the registers for an `OUTI` instruction
-pub fn outi_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn outi_registers(state: &mut State, cycles: u32) -> ExecResult {
     outx_registers(state, 1);
     ExecResult::Done(cycles)
 }
 
 /// Updates the registers for an `OUTD` instruction
-pub fn outd_registers(state: &mut State, cycles: u32) -> ExecResult {
+pub(crate) fn outd_registers(state: &mut State, cycles: u32) -> ExecResult {
     outx_registers(state, -1);
     ExecResult::Done(cycles)
 }
 
 /// Updates the registers for an `OTIR` or `OTDR` instruction
-pub fn otxr_registers(
+pub(crate) fn otxr_registers(
     state: &mut State,
     offset: i16,
     cycles_loop: u32,
@@ -281,11 +305,19 @@ pub fn otxr_registers(
 }
 
 /// Updates the registers for an `OTIR` instruction
-pub fn otir_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn otir_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     otxr_registers(state, 1, cycles_loop, cycles_no_loop)
 }
 
 /// Updates the registers for an `OTDR` instruction
-pub fn otdr_registers(state: &mut State, cycles_loop: u32, cycles_no_loop: u32) -> ExecResult {
+pub(crate) fn otdr_registers(
+    state: &mut State,
+    cycles_loop: u32,
+    cycles_no_loop: u32,
+) -> ExecResult {
     otxr_registers(state, -1, cycles_loop, cycles_no_loop)
 }

@@ -28,12 +28,12 @@
 use crate::instructions::ExecResult;
 use crate::state::{Register16, State};
 
-pub mod bit;
-pub mod io;
-pub mod jump;
-pub mod ld;
-pub mod math;
-pub mod transfer;
+pub(crate) mod bit;
+pub(crate) mod io;
+pub(crate) mod jump;
+pub(crate) mod ld;
+pub(crate) mod math;
+pub(crate) mod transfer;
 
 /// A microinstruction is just a function that operates on the state and yields an execution result.
 ///
@@ -49,7 +49,7 @@ pub fn fetch(state: &mut State) -> ExecResult {
     ExecResult::fetch(pc)
 }
 
-/// Load the parameter for a two byte instruction.
+/// Microinstruction to load the parameter for a two byte instruction.
 ///
 /// The result is stored in the `Z` register.
 pub fn load_byte_parameter(state: &mut State) -> ExecResult {
@@ -58,7 +58,7 @@ pub fn load_byte_parameter(state: &mut State) -> ExecResult {
     ExecResult::load(pc)
 }
 
-/// Loads the parameter for a three byte instruction
+/// Microinstruction to load the parameter for a three byte instruction
 ///
 /// The result is stored in the `WZ` register.
 pub fn load_word_parameter(state: &mut State) -> ExecResult {
