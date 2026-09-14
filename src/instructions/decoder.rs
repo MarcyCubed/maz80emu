@@ -35,8 +35,6 @@ pub(crate) struct Decoder {
 enum DecoderState {
     /// Fetch the opcode from memory
     FetchOpcode,
-    /// We got the opcode
-    Fetched,
     /// Do a table lookup on the fetched opcode
     Table,
     /// An instruction with two prefixes
@@ -67,8 +65,9 @@ impl Decoder {
     /// Set up the decoder to fetch an opcode.
     ///
     /// Return the microinstructions to fetch an opcode
+    #[inline] // Inlining this speeds up the decoder
     fn fetch(&mut self) -> &'static [Microinstruction] {
-        self.state = DecoderState::Fetched;
+        self.state = DecoderState::Table;
         &[micro::fetch]
     }
 
@@ -92,13 +91,9 @@ impl Decoder {
                 self.address = state.pc();
                 self.fetch()
             }
-            DecoderState::Fetched => {
-                // We need this intermediate state to handle injecting opcodes
-                self.opcode = state.z();
-                self.state = DecoderState::Table;
-                self.decode(state)
-            }
             DecoderState::Table => {
+                // Get the opcode from the Z register
+                self.opcode = state.z();
                 if self.show_state {
                     state.print_debug(Some(self.opcode))
                 }
@@ -186,14 +181,13 @@ impl Decoder {
         }
     }
 
-    /// Set an opcode to be executed
+    /// Inform the decoder an opcode was already read from memory into the Z register
     ///
     /// Return `true` if the opcode was successfully injected, `false` if the decoder was already
     /// decoding something
-    pub fn inject_opcode(&mut self, opcode: u8) -> bool {
+    pub fn opcode_fetched(&mut self) -> bool {
         if matches!(self.state, DecoderState::FetchOpcode) {
-            self.state = DecoderState::Table;
-            self.opcode = opcode;
+            self.fetch();
             true
         } else {
             false

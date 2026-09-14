@@ -75,8 +75,9 @@ impl Emulator {
             self.int_pending = false;
             match self.state.interrupt_mode {
                 InterruptMode::Instruction => {
-                    // Dispatch the instruction
-                    let injected = self.decoder.inject_opcode(self.interrupt_data);
+                    // Inject the instruction into the processor as if it was fetched normally
+                    *self.state.z_mut() = self.interrupt_data;
+                    let injected = self.decoder.opcode_fetched();
                     assert!(
                         injected,
                         "Failed to inject instruction {:02x}h",
@@ -85,7 +86,9 @@ impl Emulator {
                     Some((&[], ExecResult::Int(6)))
                 }
                 InterruptMode::Rst0038 => {
-                    let injected = self.decoder.inject_opcode(0xff);
+                    // Inject a rst 38h instruction
+                    *self.state.z_mut() = 0xff;
+                    let injected = self.decoder.opcode_fetched();
                     assert!(injected, "Failed to inject rst 0x38 instruction");
                     Some((&[], ExecResult::Int(6)))
                 }
