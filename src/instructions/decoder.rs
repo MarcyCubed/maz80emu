@@ -19,10 +19,13 @@ pub(crate) struct Decoder {
     /// The last instruction to be loaded
     last_instruction: &'static [Microinstruction],
     /// The printer of the last instruction
+    #[cfg(feature = "debugging")]
     last_printer: fn(&State),
     /// Is tracing enabled?
+    #[cfg(feature = "debugging")]
     is_tracing: bool,
     /// Is the state being printed before each instruction?
+    #[cfg(feature = "debugging")]
     show_state: bool,
     /// The last opcode to be fetched
     opcode: u8,
@@ -54,8 +57,11 @@ impl Decoder {
             current: instruction_set,
             state: INITIAL,
             last_instruction: &[],
+            #[cfg(feature = "debugging")]
             last_printer: |_| {},
+            #[cfg(feature = "debugging")]
             is_tracing: false,
+            #[cfg(feature = "debugging")]
             show_state: false,
             opcode: 0,
             address: 0,
@@ -78,6 +84,7 @@ impl Decoder {
     }
 
     /// Display the current instruction
+    #[cfg(feature = "debugging")]
     fn display_instruction(&self, state: &State) {
         print!("{:0>4x}h   ", self.address);
         (self.last_printer)(state);
@@ -94,6 +101,7 @@ impl Decoder {
             DecoderState::Table => {
                 // Get the opcode from the Z register
                 self.opcode = state.z();
+                #[cfg(feature = "debugging")]
                 if self.show_state {
                     state.print_debug(Some(self.opcode))
                 }
@@ -119,6 +127,7 @@ impl Decoder {
                         match extra_bytes {
                             ExtraBytes::None => {
                                 // Fully decoded the instruction.
+                                #[cfg(feature = "debugging")]
                                 if self.is_tracing {
                                     self.display_instruction(state);
                                 }
@@ -156,6 +165,7 @@ impl Decoder {
             DecoderState::TwoPrefix(table) => {
                 // Reverse Z and W , so the instruction is in Z and the displacement in W
                 self.opcode = state.w();
+                #[cfg(feature = "debugging")]
                 if self.show_state {
                     state.print_debug(Some(self.opcode))
                 }
@@ -172,6 +182,7 @@ impl Decoder {
             }
             DecoderState::Decoded => {
                 // Decoded the instruction: Reset the decoder and return the micro instructions
+                #[cfg(feature = "debugging")]
                 if self.is_tracing {
                     self.display_instruction(state);
                 }
